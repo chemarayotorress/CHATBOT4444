@@ -1,0 +1,547 @@
+{
+  "name": "El bueno",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "f87c1838-6b21-4527-9d48-2521d1607ed7",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1408,
+        -128
+      ],
+      "webhookId": "70f7f3d5-9ce9-447a-b8d8-8f902fcc04a8",
+      "credentials": {
+        "telegramApi": {
+          "id": "OPQOt2byzph4aTkf",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const update = $json;\nlet chatId, text = '';\n\n// NORMALIZACIÓN ESTRICTA\nif (update.message) {\n  chatId = update.message.chat.id;\n  text = update.message.text || '';\n} else if (update.callback_query) {\n  chatId = update.callback_query.message.chat.id;\n  // AQUÍ ESTÁ LA CLAVE: Leemos el 'data' del botón\n  text = update.callback_query.data || '';\n}\n\nreturn [{ json: { chatId, text, raw: update } }];"
+      },
+      "id": "3158e8b6-acf5-4842-a040-af7b5b35e53b",
+      "name": "Normalize Telegram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// CÓDIGO ORIGINAL (RESTAURAR DESPUÉS DE PROBAR)\nconst data = $getWorkflowStaticData('global');\nconst isMemoryEmpty = !data.catalog || Object.keys(data.catalog).length === 0;\nconst items = $input.all();\nreturn items.map(item => ({ json: { ...item.json, memoryEmpty: isMemoryEmpty } }));"
+      },
+      "id": "9792867a-edb5-4a57-8a97-66385131e991",
+      "name": "Verificar Memoria",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.memoryEmpty }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "09bbe7c4-82ba-4301-93db-9cb2688b8d29",
+      "name": "¿Cargar BD?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "171OxljLpc-5-RYaaVlFJR93IcbwbijLuhPjJ2Y79H6I",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DB_Maquinas",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "d5771507-24bc-4768-b83e-40d8eb02f9bc",
+      "name": "Leer DB_Maquinas",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -512,
+        -208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DxYUvYlQ1tfP3LLg",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "171OxljLpc-5-RYaaVlFJR93IcbwbijLuhPjJ2Y79H6I",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DB_Opciones",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "9a686b11-b018-4dab-b848-5d7e6ff1394f",
+      "name": "Leer DB_Opciones",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -288,
+        -208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DxYUvYlQ1tfP3LLg",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- CARGA DATA-DRIVEN DESDE GOOGLE SHEETS (DB_Maquinas + DB_Opciones) ---\n// Fuentes: nodos \"Leer DB_Maquinas\" y \"Leer DB_Opciones\"\nconst toNum = (v) => {\n  if (v === null || v === undefined) return 0;\n  const s = String(v).replace(/[^0-9.\\-]/g, '');\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? n : 0;\n};\nconst toInt = (v, d=0) => {\n  const n = parseInt(String(v), 10);\n  return Number.isFinite(n) ? n : d;\n};\n\n// getter flexible (tolerante a sinónimos/ mayúsculas / espacios)\nconst normKey = (k) => String(k || '').toLowerCase().trim().replace(/\\s+/g,'').replace(/[_\\-]/g,'');\nconst getVal = (obj, terms) => {\n  if (!obj) return undefined;\n  const keys = Object.keys(obj);\n  const map = new Map(keys.map(k => [normKey(k), k]));\n  for (const t of terms) {\n    const nk = normKey(t);\n    if (map.has(nk)) return obj[map.get(nk)];\n  }\n  return undefined;\n};\n\nconst norm = (v) => String(v ?? '').trim().replace(/\\s+/g, ' ');\nconst normLower = (v) => norm(v).toLowerCase();\nconst optionSeen = new WeakMap();\n\n// Nota: en n8n, el nombre exacto de los nodos importa:\nconst maquinasRows = $items(\"Leer DB_Maquinas\").map(i => i.json);\nconst opcionesRows = $items(\"Leer DB_Opciones\").map(i => i.json);\n\nconst catalog = {};\n\n// 1) Máquinas\nfor (const row of maquinasRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"id\",\"maquina_id\"]);\n  if (!modelo) continue;\n\n  const nombre = getVal(row, [\"nombre\",\"name\",\"descripcion\",\"description\"]) ?? modelo;\n  const basePrice = toNum(getVal(row, [\"precio_base\",\"base_price\",\"price\",\"precio\",\"costo\"]));\n  const plantilla = getVal(row, [\"plantilla\",\"template\",\"docx\",\"archivo\"]);\n\n  catalog[String(modelo)] = {\n    id: String(modelo),\n    name: String(nombre),\n    basePrice,\n    plantilla: plantilla ? String(plantilla) : undefined,\n    steps: []\n  };\n}\n\n// 2) Opciones / Pasos\nfor (const row of opcionesRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"maquina\",\"maquina_id\"]);\n  if (!modelo) continue;\n  const m = catalog[String(modelo)];\n  if (!m) continue;\n\n  const pasoId = getVal(row, [\"paso_id\",\"step_id\",\"paso\",\"step\"]);\n  const pregunta = getVal(row, [\"pregunta\",\"paso_pregunta\",\"question\",\"texto\"]);\n  const orden = toInt(getVal(row, [\"paso_orden\",\"order\",\"orden\"]), 0);\n\n  if (!pasoId) continue;\n\n  let step = m.steps.find(s => s.id === String(pasoId));\n  if (!step) {\n    step = { id: String(pasoId), question: String(pregunta ?? ''), order: orden, options: [] };\n    m.steps.push(step);\n  }\n\n  const rawLabel = getVal(row, [\"opcion_label\",\"label\",\"etiqueta\",\"nombre_opcion\",\"opcion\"]);\n  const rawValue = getVal(row, [\"opcion_valor\",\"value\",\"valor\",\"code\",\"key\"]) ?? rawLabel;\n  const price = toNum(getVal(row, [\"opcion_precio\",\"price\",\"precio\",\"costo\",\"extra\"]));\n\n  // Evitar opciones vacías\n  const labelStr = norm(rawLabel);\n  let valueStr = norm(rawValue || labelStr);\n  if (labelStr === '') continue;\n\n  if (valueStr === '') valueStr = labelStr;\n\n  const key = `${normLower(labelStr)}|${normLower(valueStr)}`;\n  let seenForStep = optionSeen.get(step);\n  if (!seenForStep) {\n    seenForStep = new Set();\n    optionSeen.set(step, seenForStep);\n  }\n  if (seenForStep.has(key)) continue;\n  seenForStep.add(key);\n\n  step.options.push({\n    label: labelStr,\n    value: valueStr,\n    price\n  });\n}\n\n// 3) Ordenar pasos y (opcional) opciones\nfor (const mid of Object.keys(catalog)) {\n  catalog[mid].steps.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));\n}\n\nconst staticData = $getWorkflowStaticData('global');\nstaticData.catalog = catalog;\n\nreturn [{ json: { success: true, models: Object.keys(catalog).length } }];\n"
+      },
+      "id": "22590555-ae92-4c24-95f8-306d85a04500",
+      "name": "Guardar en Memoria",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "👋 *Bienvenido al Cotizador VC999*\n\nSelecciona:",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "🧠 Cotización Avanzada",
+                    "additionalFields": {
+                      "callback_data": "MENU|AVANZADA"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "19bb0dec-da15-4974-b436-4a7da91fc155",
+      "name": "Enviar Menú",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        -32
+      ],
+      "webhookId": "28481a81-2d6a-4ccf-9a2c-837d53239147",
+      "credentials": {
+        "telegramApi": {
+          "id": "OPQOt2byzph4aTkf",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- ROUTER MAESTRO (Callback vs Texto) ---\n// Entrada: Normalize Telegram => { chatId, text, raw }\nconst { chatId, text, raw } = $json;\n\nconst staticData = $getWorkflowStaticData('global');\nstaticData.cot = staticData.cot || {};\nconst hasSession = !!staticData.cot?.[chatId];\n\n// Defaults\nlet action = null;\n\n// 1) /start o comandos\nif (raw?.message?.text && raw.message.text.startsWith('/')) {\n  if (raw.message.text.trim().toLowerCase() === '/start') action = 'START';\n  else action = 'START'; // puedes expandir comandos después\n}\n// 2) Botones (callback_data)\nelse if (raw?.callback_query?.data) {\n  const data = raw.callback_query.data;\n\n  if (data === 'MENU|AVANZADA') action = 'MENU_SELECTION';\n  else {\n    // Formatos esperados:\n    //   MODEL|START\n    //   MODEL|OPT|STEP|VALUE|PRICE\n    action = 'COTIZACION_FLOW';\n  }\n}\n// 3) Texto libre (nombre/correo) cuando ya existe sesión\nelse if (raw?.message?.text && !raw.message.text.startsWith('/') && hasSession) {\n  action = 'COTIZACION_FLOW';\n}\n\nreturn [{ json: { chatId, text, action } }];"
+      },
+      "id": "bca170ce-f52e-401b-bb41-0ede88b68e7a",
+      "name": "Router Maestro",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rule-1-condition-1",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "START",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rule-2-condition-1",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "MENU_SELECTION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "rule-3-condition-1",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "COTIZACION_FLOW",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6300f5ca-3555-4c71-b19a-bab2032c9b18",
+      "name": "Switch Maestro",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        384,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isFinished }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "7f5cc95a-2167-4567-873f-1da3882b8eb7",
+      "name": "¿Terminó?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        848,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "af8c0765-2051-4b73-bfcb-5d0868fd9490",
+      "name": "Pedir Cliente",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1072,
+        272
+      ],
+      "webhookId": "709414e3-6af1-49bd-8ad7-3732275d487d",
+      "credentials": {
+        "telegramApi": {
+          "id": "OPQOt2byzph4aTkf",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8335208719:AAHyaYQ2wKfjGEWOf9V1Zrp6KOE7HYWbJrY/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ chat_id: $json.chatId, text: $json.text, parse_mode: \"Markdown\", reply_markup: $json.reply_markup || {} }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1072,
+        464
+      ],
+      "id": "6e90eda7-7bfe-4a60-b159-c09dbf538049",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- GENERADOR DE MENÚ DINÁMICO ---\nconst staticData = $getWorkflowStaticData('global');\nconst catalog = staticData.catalog || {};\nconst models = Object.keys(catalog); // Obtiene lista: [\"CM1100\", \"MDM4121\", etc.]\n\n// Si el catálogo está vacío, advertimos\nif (models.length === 0) {\n  return [{ json: { \n    chatId: $json.chatId, \n    text: \"⚠️ La memoria está vacía. Por favor ejecuta /start para recargar.\", \n    reply_markup: {} \n  }}];\n}\n\n// Construimos los botones (2 por fila)\nconst keyboard = [];\nlet row = [];\n\nmodels.forEach((model, index) => {\n  row.push({\n    text: model, \n    callback_data: `${model}|START` // CLAVE: Esto inicia el flujo de esa máquina\n  });\n\n  if (row.length === 2 || index === models.length - 1) {\n    keyboard.push(row);\n    row = [];\n  }\n});\n\n// Salida lista para tu nodo HTTP Request o Telegram\nreturn [{\n  json: {\n    chatId: $json.chatId,\n    text: \"🏭 *Catálogo VC999 Disponible*\\n\\nSelecciona la máquina que deseas cotizar:\",\n    reply_markup: {\n      inline_keyboard: keyboard\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        192
+      ],
+      "id": "8833943f-501a-438f-a3e2-fa81a8ae6716",
+      "name": "Generar menú dinámico"
+    },
+    {
+      "parameters": {
+        "jsCode": "        const staticData = $getWorkflowStaticData('global');\n        const catalog = staticData.catalog || {};\n        staticData.cot = staticData.cot || {};\n\n        const { chatId, text } = $json;\n\n        // Helpers\n        const money = (n) => {\n          const x = Number(n || 0);\n          return x.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });\n        };\n        const toNum = (v) => {\n          const s = String(v ?? '').replace(/[^0-9.\\-]/g,'');\n          const n = parseFloat(s);\n          return Number.isFinite(n) ? n : 0;\n        };\n        const normText = (v) => String(v ?? '').trim().replace(/\\s+/g, ' ');\n        const optionKey = (label, value) => `${normText(label).toLowerCase()}|${normText(value ?? label).toLowerCase()}`;\n\n        // Estado de usuario\n        let userState = staticData.cot[chatId];\n\n        // Detectar tipo de input\n        const isCallback = typeof text === 'string' && text.includes('|');\n        const isStartMachine = isCallback && text.endsWith('|START');\n        const isOpt = isCallback && text.includes('|OPT|');\n\n        // A) Selección de máquina (inicio)\n        if (isStartMachine) {\n          const model = text.split('|')[0];\n          const machine = catalog[model];\n          if (!machine) {\n            return [{ json: { chatId, text: \"⚠️ Error: Máquina no encontrada. Ejecuta /start.\", reply_markup: {} } }];\n          }\n\n          userState = {\n            stage: \"config\",          // config | await_name | await_email | done\n            machine: model,\n            stepIndex: 0,\n            selections: [],\n            totalPrice: toNum(machine.basePrice),\n            customer: {}\n          };\n        }\n\n        // B) Opción elegida\n        if (isOpt) {\n          const parts = text.split('|');\n          const model = parts[0];\n          const stepId = parts[2];\n          const val = parts[3];\n          const price = toNum(parts[4]);\n\n          if (!userState || userState.machine !== model) {\n            return [{ json: { chatId, text: \"⚠️ Sesión expirada o modelo no coincide. Ejecuta /start.\", reply_markup: {} } }];\n          }\n\n          userState.selections.push({ step: stepId, value: val, price });\n          userState.totalPrice += price;\n          userState.stepIndex += 1;\n        }\n\n        // C) Texto libre (Nombre / Correo) — solo si ya terminamos pasos\n        if (!isCallback && userState) {\n          const msg = String(text || '').trim();\n\n          if (userState.stage === \"await_name\") {\n            userState.customer.name = msg;\n            userState.stage = \"await_email\";\n          } else if (userState.stage === \"await_email\") {\n            userState.customer.email = msg;\n            userState.stage = \"done\";\n          }\n        }\n\n        // Validación de máquina\n        if (!userState) {\n          return [{ json: { chatId, text: \"Usa /start y selecciona una máquina para iniciar.\", reply_markup: {} } }];\n        }\n\n        const machineConfig = catalog[userState.machine];\n        if (!machineConfig) {\n          return [{ json: { chatId, text: \"⚠️ Catálogo no disponible. Ejecuta /start para recargar.\", reply_markup: {} } }];\n        }\n\n        // D) Render de siguiente paso / cierre\n        let response = {};\n        let isFinished = false;\n\n        if (userState.stage === \"config\") {\n          const currentIndex = userState.stepIndex;\n\n          if (currentIndex < machineConfig.steps.length) {\n            const step = machineConfig.steps[currentIndex];\n            const stepOptions = Array.isArray(step.options) ? step.options : [];\n\n            if (stepOptions.length === 0) {\n              response = {\n                text: `⚠️ No hay opciones disponibles para el paso \"${step.id ?? currentIndex + 1}\". Usa /start para recargar el catálogo o contacta soporte.`,\n                reply_markup: {}\n              };\n            } else {\n              const inline_keyboard = [];\n              const seenOptions = new Set();\n\n              stepOptions.forEach(opt => {\n                const price = toNum(opt.price);\n                const priceText = price > 0 ? ` (+$${money(price)})` : '';\n                const value = opt.value ?? opt.label ?? 'NA';\n                const key = optionKey(opt.label ?? value, value);\n                if (seenOptions.has(key)) return;\n                seenOptions.add(key);\n\n                inline_keyboard.push([\n                  {\n                    text: `${opt.label ?? value}${priceText}`,\n                    callback_data: `${userState.machine}|OPT|${step.id}|${value}|${price}`\n                  }\n                ]);\n              });\n\n              response = {\n                text:\n`🛠️ *${userState.machine}* (Paso ${currentIndex + 1}/${machineConfig.steps.length})\n💰 Total: $${money(userState.totalPrice)} USD\n\n${step.question ?? 'Selecciona una opción:'}`,\n                reply_markup: { inline_keyboard }\n              };\n            }\n\n          } else {\n            // terminamos configuraciones -> pedir nombre\n            userState.stage = \"await_name\";\n            isFinished = true;\n\n            response = {\n              text:\n`✅ *Cotización lista*\nModelo: *${userState.machine}*\nTotal: *$${money(userState.totalPrice)} USD*\n\nEscribe el *Nombre del Cliente*:`\n            };\n          }\n\n        } else if (userState.stage === \"await_name\") {\n          isFinished = true;\n          response = { text: \"📝 Ahora escribe el *correo del cliente*:\" };\n\n        } else if (userState.stage === \"await_email\") {\n          isFinished = true;\n          response = { text: \"📝 Ahora escribe el *correo del cliente*:\" };\n\n        } else if (userState.stage === \"done\") {\n          // JSON final (por ahora solo lo mostramos; luego lo mandas a PDF)\n          const payload = {\n            machine: userState.machine,\n            basePrice: toNum(machineConfig.basePrice),\n            totalPrice: toNum(userState.totalPrice),\n            selections: userState.selections,\n            customer: userState.customer\n          };\n\n          response = {\n            text:\n`📦 *JSON final listo para PDF*\n\\`\\`\\`json\n${JSON.stringify(payload, null, 2)}\n\\`\\`\\``\n          };\n          isFinished = true;\n        }\n\n        // Persistir estado\n        staticData.cot[chatId] = userState;\n\n        return [{ json: { chatId, ...response, isFinished, userState } }];\n"
+      },
+      "id": "1a09eccc-bcdd-4d34-93c7-272222c5bf19",
+      "name": "Lógica Cotizador",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        368
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Telegram": {
+      "main": [
+        [
+          {
+            "node": "Verificar Memoria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Memoria": {
+      "main": [
+        [
+          {
+            "node": "¿Cargar BD?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Cargar BD?": {
+      "main": [
+        [
+          {
+            "node": "Leer DB_Maquinas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Router Maestro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer DB_Maquinas": {
+      "main": [
+        [
+          {
+            "node": "Leer DB_Opciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer DB_Opciones": {
+      "main": [
+        [
+          {
+            "node": "Guardar en Memoria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en Memoria": {
+      "main": [
+        [
+          {
+            "node": "Router Maestro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router Maestro": {
+      "main": [
+        [
+          {
+            "node": "Switch Maestro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Terminó?": {
+      "main": [
+        [
+          {
+            "node": "Pedir Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Maestro": {
+      "main": [
+        [
+          {
+            "node": "Enviar Menú",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generar menú dinámico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lógica Cotizador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar menú dinámico": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lógica Cotizador": {
+      "main": [
+        [
+          {
+            "node": "¿Terminó?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7b79aee0-b34f-4bf9-9c5d-42dc2c966dec",
+  "meta": {
+    "instanceId": "bab9ea1064b287c9dcda3c539a2814767496f1b71236f97b3b9d9ed32056214c"
+  },
+  "id": "6QSLQZPIiAIlGpsn",
+  "tags": []
+}
