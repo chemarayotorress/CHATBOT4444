@@ -375,6 +375,132 @@
         624,
         368
       ]
+    },
+    {
+      "id": "d50dfe2b-0020-451f-bcaa-39c521abf3bf",
+      "name": "Preparar Body FastAPI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        368
+      ],
+      "parameters": {
+        "jsCode": "const quote = $json.quotePayload || {};\nconst selections = Array.isArray(quote.selections) ? quote.selections.map((sel) => ({\n  paso: sel.step || sel.label || '',\n  opcion: sel.value || sel.option || '',\n  precio: sel.price ?? 0,\n})) : [];\n\nconst fastapiBody = {\n  modelo: quote.machine || '',\n  nombre_cliente: quote.customer?.name || '',\n  email: quote.customer?.email || '',\n  precio_cambiado: quote.totalPrice ?? 0,\n  precio_base: quote.basePrice ?? quote.totalPrice ?? 0,\n  selecciones: selections,\n};\n\nreturn [{ json: { ...$json, fastapiBody } }];\n"
+      }
+    },
+    {
+      "id": "b6234b57-369a-47b1-9744-6ea48b0b8736",
+      "name": "Llamar FastAPI Cotización",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1504,
+        368
+      ],
+      "parameters": {
+        "url": "https://kenisha-wrongful-jetta.ngrok-free.dev/generar-cotizacion",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.fastapiBody }}",
+        "responseFormat": "file",
+        "outputPropertyName": "pdf",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "56d1bb71-2451-462c-9a72-a7ff2ecd449a",
+      "name": "¿PDF generado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1728,
+        368
+      ],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $binary.pdf !== undefined }}",
+              "value2": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "abd4800c-4a96-4c8c-9f3f-94ea70159ba0",
+      "name": "Send a document",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1952,
+        304
+      ],
+      "parameters": {
+        "operation": "sendDocument",
+        "chatId": "={{ $json.chatId }}",
+        "binaryPropertyName": "pdf",
+        "additionalFields": {
+          "caption": "={{ \"Cotización VC999 \" + ($json.quotePayload.machine || \"\") + \" para \" + ($json.quotePayload.customer?.name || \"Cliente\") + \"\\nTotal: $\" + ($json.quotePayload.totalPrice || 0) + \" USD\\nCorreo: \" + ($json.quotePayload.customer?.email || \"N/A\") }}",
+          "fileName": "={{ \"Cotizacion_\" + ($json.quotePayload.machine || \"Modelo\") + \"_\" + ($json.quotePayload.customer?.name || \"Cliente\") + \".pdf\" }}"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "OPQOt2byzph4aTkf",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "id": "fa8c6a0b-1218-4786-bc4c-b1f07c1a247e",
+      "name": "Send a message",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        1952,
+        432
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "toEmail": "={{ $json.quotePayload.customer.email }}",
+        "subject": "={{ \"Cotización VC999 - \" + ($json.quotePayload.machine || \"\") + \" - \" + ($json.quotePayload.customer?.name || \"Cliente\") }}",
+        "message": "={{ `<p>Hola ${$json.quotePayload.customer?.name || \"\"},</p>` + `<p>Adjuntamos tu cotización VC999 ${$json.quotePayload.machine || \"\"}.</p>` + `<p>Total estimado: $${$json.quotePayload.totalPrice || 0} USD.</p>` + `<p>Gracias por tu preferencia.</p>` }}",
+        "additionalFields": {
+          "attachmentsBinary": [
+            "pdf"
+          ]
+        }
+      }
+    },
+    {
+      "id": "f459a42a-d671-4820-9a08-7da8072059c5",
+      "name": "Notificar error PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1952,
+        560
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot8335208719:AAHyaYQ2wKfjGEWOf9V1Zrp6KOE7HYWbJrY/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ chat_id: $json.chatId, text: \"⚠️ No pudimos generar tu cotización en este momento. Por favor intenta nuevamente.\", parse_mode: \"Markdown\" }) }}",
+        "options": {}
+      }
     }
   ],
   "pinData": {},
@@ -478,7 +604,7 @@
       "main": [
         [
           {
-            "node": "Pedir Cliente",
+            "node": "Preparar Body FastAPI",
             "type": "main",
             "index": 0
           }
@@ -533,6 +659,51 @@
         [
           {
             "node": "¿Terminó?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Body FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Llamar FastAPI Cotización",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Llamar FastAPI Cotización": {
+      "main": [
+        [
+          {
+            "node": "¿PDF generado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿PDF generado?": {
+      "main": [
+        [
+          {
+            "node": "Send a document",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notificar error PDF",
             "type": "main",
             "index": 0
           }
