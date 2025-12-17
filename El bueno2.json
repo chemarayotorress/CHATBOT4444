@@ -293,7 +293,7 @@
         "conditions": {
           "boolean": [
             {
-              "value1": "={{ $json.isFinished }}",
+              "value1": "={{ !!($json.quotePayload && $json.quotePayload.machine && $json.quotePayload.customer && $json.quotePayload.customer.email && ($json.userState?.stage ? $json.userState.stage === \"done\" : true)) }}",
               "value2": true
             }
           ]
@@ -386,7 +386,7 @@
         368
       ],
       "parameters": {
-        "jsCode": "const quote = $json.quotePayload || {};\nconst selections = Array.isArray(quote.selections) ? quote.selections.map((sel) => ({\n  paso: sel.step || sel.label || '',\n  opcion: sel.value || sel.option || '',\n  precio: sel.price ?? 0,\n})) : [];\n\nconst fastapiBody = {\n  modelo: quote.machine || '',\n  nombre_cliente: quote.customer?.name || '',\n  email: quote.customer?.email || '',\n  precio_cambiado: quote.totalPrice ?? 0,\n  precio_base: quote.basePrice ?? quote.totalPrice ?? 0,\n  selecciones: selections,\n};\n\nreturn [{ json: { ...$json, fastapiBody } }];\n"
+        "jsCode": "const quote = $json.quotePayload || {};\n\nif (!quote.machine) {\n  throw new Error('quotePayload.machine is required to generate cotización');\n}\n\nconst selections = Array.isArray(quote.selections)\n  ? quote.selections.map((sel) => ({\n      paso: sel.step ?? sel.label ?? '',\n      opcion: sel.value ?? sel.option ?? '',\n      precio: sel.price ?? 0,\n    }))\n  : [];\n\nconst fastapiBody = {\n  modelo: quote.machine,\n  nombre_cliente: quote.customer?.name || '',\n  email: quote.customer?.email || '',\n  precio_cambiado: quote.totalPrice ?? 0,\n  precio_base: quote.basePrice ?? quote.totalPrice ?? 0,\n  selecciones: selections,\n};\n\nreturn [{ json: { ...$json, fastapiBody } }];\n"
       }
     },
     {
@@ -451,9 +451,10 @@
         "chatId": "={{ $json.chatId }}",
         "binaryPropertyName": "pdf",
         "additionalFields": {
-          "caption": "={{ \"Cotización VC999 \" + ($json.quotePayload.machine || \"\") + \" para \" + ($json.quotePayload.customer?.name || \"Cliente\") + \"\\nTotal: $\" + ($json.quotePayload.totalPrice || 0) + \" USD\\nCorreo: \" + ($json.quotePayload.customer?.email || \"N/A\") }}",
+          "caption": "={{ \"Cotización VC999 \" + ($json.quotePayload.machine || \"\") + \" para \" + ($json.quotePayload.customer?.name || \"Cliente\") + \"\nTotal: $\" + ($json.quotePayload.totalPrice || 0) + \" USD\nEnviado también al correo: \" + ($json.quotePayload.customer?.email || \"N/A\") }}",
           "fileName": "={{ \"Cotizacion_\" + ($json.quotePayload.machine || \"Modelo\") + \"_\" + ($json.quotePayload.customer?.name || \"Cliente\") + \".pdf\" }}"
-        }
+        },
+        "binaryData": true
       },
       "credentials": {
         "telegramApi": {
