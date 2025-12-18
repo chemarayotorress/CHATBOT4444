@@ -399,12 +399,15 @@
         368
       ],
       "parameters": {
-        "url": "={{ ($env.NGROK_URL || 'https://kenisha-wrongful-jetta.ngrok-free.dev') + '/generar-cotizacion' }}",
+        "url": "https://kenisha-wrongful-jetta.ngrok-free.dev/generar-cotizacion",
         "method": "POST",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.fastapiBody }}",
-        "responseFormat": "json",
+        "specifyHeaders": "json",
+        "headerParametersJson": "={{ { \"Accept\": \"application/pdf\", \"Content-Type\": \"application/json\" } }}",
+        "responseFormat": "file",
+        "binaryPropertyName": "data",
         "options": {
           "timeout": 120
         }
@@ -423,11 +426,7 @@
         "conditions": {
           "boolean": [
             {
-              "value1": "={{ $json.ok === true }}",
-              "value2": true
-            },
-            {
-              "value1": "={{ !!$json.pdf_base64 }}",
+              "value1": "={{ !!($binary && $binary.data) }}",
               "value2": true
             }
           ]
@@ -449,7 +448,8 @@
         "binaryData": true,
         "document": "",
         "additionalFields": {
-          "caption": "={{ `📄 Cotización generada\nModelo: ${$node[\"Preparar Body FastAPI\"].json.fastapiBody.modelo}\nCliente: ${$node[\"Preparar Body FastAPI\"].json.fastapiBody.nombre_cliente}\nTotal: $${$node[\"Preparar Body FastAPI\"].json.fastapiBody.precio_cambiado} USD` }}"
+          "caption": "={{ `📄 Cotización generada\nModelo: ${$node[\"Preparar Body FastAPI\"].json.fastapiBody.modelo}\nCliente: ${$node[\"Preparar Body FastAPI\"].json.fastapiBody.nombre_cliente}\nTotal: $${$node[\"Preparar Body FastAPI\"].json.fastapiBody.precio_cambiado} USD` }}",
+          "fileName": "={{ `cotizacion_${$node[\"Preparar Body FastAPI\"].json.fastapiBody?.modelo || $node[\"Preparar Body FastAPI\"].json.userState?.machine || $node[\"Preparar Body FastAPI\"].json.machine || 'VC999'}.pdf` }}"
         },
         "binaryProperty": "data"
       },
@@ -508,7 +508,7 @@
         368
       ],
       "parameters": {
-        "jsCode": "const res = $json;\nconst pdf64 = res.pdf_base64 || res.pdfBase64 || '';\nif (!pdf64) {\n  return [{ json: { ...res, ok: false, error: 'pdf_base64_missing' } }];\n}\nconst buffer = Buffer.from(pdf64, 'base64');\nconst fileName = res.filename || 'cotizacion.pdf';\nreturn [{ json: res, binary: { data: { data: buffer, mimeType: 'application/pdf', fileName } } }];\n"
+        "jsCode": "const res = $json || {};\n\n// Si ya viene binario (HTTP descargó el PDF), preservamos y pasamos el item tal cual.\nif ($binary && $binary.data) {\n  return [{ json: res, binary: $binary }];\n}\n\n// Compatibilidad: si viene en base64, lo convertimos.\nconst pdf64 = res.pdf_base64 || res.pdfBase64 || '';\nif (pdf64) {\n  const buffer = Buffer.from(pdf64, 'base64');\n  const fileName = res.filename || res.fileName || 'cotizacion.pdf';\n  return [{ json: res, binary: { data: { data: buffer, mimeType: 'application/pdf', fileName } } }];\n}\n\n// Sin PDF: devolvemos error para que el flujo caiga a la rama falsa.\nreturn [{ json: { ...res, ok: false, error: 'pdf_missing' } }];\n"
       }
     }
   ],
