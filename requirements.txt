@@ -1,5 +1,0 @@
-fastapi
-uvicorn
-reportlab
-fpdf2
-pydantic
