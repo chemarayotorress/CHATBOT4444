@@ -404,6 +404,7 @@
         "conditions": {
           "boolean": [
             {
+              "value1": "={{ !!($binary && $binary.data) }}",
               "value1": "={{ !!($binary && $binary.data) === true }}",
               "value2": true
             }
@@ -426,6 +427,8 @@
         "binaryData": true,
         "document": "data",
         "additionalFields": {
+          "caption": "={{ `📄 Cotización generada\nModelo: ${$node[\"Preparar Body FastAPI\"].json.fastapiBody.modelo}\nCliente: ${$node[\"Preparar Body FastAPI\"].json.fastapiBody.nombre_cliente}\nTotal: $${$node[\"Preparar Body FastAPI\"].json.fastapiBody.precio_cambiado} USD` }}",
+          "fileName": "={{ `cotizacion_${$node[\"Preparar Body FastAPI\"].json.fastapiBody?.modelo || $node[\"Preparar Body FastAPI\"].json.userState?.machine || $node[\"Preparar Body FastAPI\"].json.machine || 'VC999'}.pdf` }}"
           "caption": "={{ `📄 Cotización generada\nModelo: ${$json.fastapiBody?.modelo || $json.userState?.machine || 'N/D'}\nCliente: ${$json.fastapiBody?.nombre_cliente || $json.userState?.customer?.name || 'N/D'}\nTotal: $${$json.fastapiBody?.precio_cambiado ?? $json.userState?.totalPrice ?? 0} USD\nrunId: ${$json.fastapiBody?.runId || $json.runId || ''}` }}",
           "fileName": "={{ (() => { const model = $json.fastapiBody?.modelo || $json.userState?.machine || 'VC999'; const runId = ($json.fastapiBody?.runId || $json.runId || 'run').replace(/[:.]/g,'_'); return `cotizacion_${model}_${runId}.pdf`; })() }}"
         },
