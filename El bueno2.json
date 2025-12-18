@@ -27,7 +27,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const update = $json;\nlet chatId, text = '';\n\n// NORMALIZACIÓN ESTRICTA\nif (update.message) {\n  chatId = update.message.chat.id;\n  text = update.message.text || '';\n} else if (update.callback_query) {\n  chatId = update.callback_query.message.chat.id;\n  // AQUÍ ESTÁ LA CLAVE: Leemos el 'data' del botón\n  text = update.callback_query.data || '';\n}\n\nreturn [{ json: { chatId, text, raw: update } }];"
+        "jsCode": "const update = $json;\nlet chatId, text = '';\n\n// NORMALIZACI\u00d3N ESTRICTA\nif (update.message) {\n  chatId = update.message.chat.id;\n  text = update.message.text || '';\n} else if (update.callback_query) {\n  chatId = update.callback_query.message.chat.id;\n  // AQU\u00cd EST\u00c1 LA CLAVE: Leemos el 'data' del bot\u00f3n\n  text = update.callback_query.data || '';\n}\n\nreturn [{ json: { chatId, text, raw: update } }];"
       },
       "id": "3158e8b6-acf5-4842-a040-af7b5b35e53b",
       "name": "Normalize Telegram",
@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// CÓDIGO ORIGINAL (RESTAURAR DESPUÉS DE PROBAR)\nconst data = $getWorkflowStaticData('global');\nconst catalog = data.catalog;\nlet memoryEmpty = true;\n\nif (catalog && Object.keys(catalog).length > 0) {\n  let hasOptions = false;\n\n  for (const model of Object.values(catalog)) {\n    if (!model || !Array.isArray(model.steps)) continue;\n    for (const step of model.steps) {\n      if (!step || !Array.isArray(step.options)) continue;\n      if (step.options.length > 0) {\n        hasOptions = true;\n        break;\n      }\n    }\n    if (hasOptions) break;\n  }\n\n  memoryEmpty = !hasOptions;\n}\n\nconst items = $input.all();\nreturn items.map(item => ({ json: { ...item.json, memoryEmpty } }));"
+        "jsCode": "// C\u00d3DIGO ORIGINAL (RESTAURAR DESPU\u00c9S DE PROBAR)\nconst data = $getWorkflowStaticData('global');\nconst catalog = data.catalog;\nlet memoryEmpty = true;\n\nif (catalog && Object.keys(catalog).length > 0) {\n  let hasOptions = false;\n\n  for (const model of Object.values(catalog)) {\n    if (!model || !Array.isArray(model.steps)) continue;\n    for (const step of model.steps) {\n      if (!step || !Array.isArray(step.options)) continue;\n      if (step.options.length > 0) {\n        hasOptions = true;\n        break;\n      }\n    }\n    if (hasOptions) break;\n  }\n\n  memoryEmpty = !hasOptions;\n}\n\nconst items = $input.all();\nreturn items.map(item => ({ json: { ...item.json, memoryEmpty } }));"
       },
       "id": "9792867a-edb5-4a57-8a97-66385131e991",
       "name": "Verificar Memoria",
@@ -63,7 +63,7 @@
         }
       },
       "id": "09bbe7c4-82ba-4301-93db-9cb2688b8d29",
-      "name": "¿Cargar BD?",
+      "name": "\u00bfCargar BD?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
@@ -131,7 +131,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// --- CARGA DATA-DRIVEN DESDE GOOGLE SHEETS (DB_Maquinas + DB_Opciones)\n// Fuentes: nodos \"Leer DB_Maquinas\" y \"Leer DB_Opciones\"\nconst toNum = (v) => {\n  if (v === null || v === undefined) return 0;\n  const s = String(v).replace(/[^0-9.\\-]/g, '');\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? n : 0;\n};\nconst toInt = (v, d=0) => {\n  const n = parseInt(String(v), 10);\n  return Number.isFinite(n) ? n : d;\n};\n\n// getter flexible (tolerante a sinónimos/ mayúsculas / espacios)\nconst normKey = (k) => String(k || '').toLowerCase().trim().replace(/\\s+/g,'').replace(/[_\\-]/g,'');\nconst getVal = (obj, terms) => {\n  if (!obj) return undefined;\n  const keys = Object.keys(obj);\n  const map = new Map(keys.map(k => [normKey(k), k]));\n  for (const t of terms) {\n    const nk = normKey(t);\n    if (map.has(nk)) return obj[map.get(nk)];\n  }\n  for (const t of terms) {\n    const nk = normKey(t);\n    const partial = keys.find(k => normKey(k).includes(nk));\n    if (partial) return obj[partial];\n  }\n  return undefined;\n};\n\nconst norm = (v) => String(v ?? '').trim().replace(/\\s+/g, ' ');\nconst normLower = (v) => norm(v).toLowerCase();\nconst optionSeen = new WeakMap();\n\n// Nota: en n8n, el nombre exacto de los nodos importa:\nconst maquinasRows = $items(\"Leer DB_Maquinas\").map(i => i.json);\nconst opcionesRows = $items(\"Leer DB_Opciones\").map(i => i.json);\n\nconst catalog = {};\n\n// 1) Máquinas\nfor (const row of maquinasRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"id\",\"maquina_id\"]);\n  if (!modelo) continue;\n\n  const nombre = getVal(row, [\"nombre\",\"name\",\"descripcion\",\"description\"]) ?? modelo;\n  const basePrice = toNum(getVal(row, [\"precio_base\",\"base_price\",\"price\",\"precio\",\"costo\"]));\n  const plantilla = getVal(row, [\"plantilla\",\"template\",\"docx\",\"archivo\"]);\n\n  catalog[String(modelo)] = {\n    id: String(modelo),\n    name: String(nombre),\n    basePrice,\n    plantilla: plantilla ? String(plantilla) : undefined,\n    steps: []\n  };\n}\n\n// 2) Opciones / Pasos\nfor (const row of opcionesRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"maquina\",\"maquina_id\"]);\n  if (!modelo) continue;\n  const m = catalog[String(modelo)];\n  if (!m) continue;\n\n  const pasoId = getVal(row, [\"paso_id\",\"step_id\",\"paso\",\"step\"]);\n  const pregunta = getVal(row, [\"pregunta\",\"paso_pregunta\",\"question\",\"texto\"]);\n  const orden = toInt(getVal(row, [\"paso_orden\",\"order\",\"orden\"]), 0);\n\n  if (!pasoId) continue;\n\n  let step = m.steps.find(s => s.id === String(pasoId));\n  if (!step) {\n    const questionStr = norm(pregunta);\n    step = { id: String(pasoId), question: questionStr || 'Selecciona una opción', order: orden, options: [] };\n    m.steps.push(step);\n  }\n\n  const rawLabel = getVal(row, [\"opcion_label\",\"label\",\"etiqueta\",\"nombre_opcion\",\"opcion\"]) || getVal(row, [\"opcion label\",\"opcion_label\",\"opcionlabel\"]);\n  const rawValue = getVal(row, [\"opcion_valor\",\"value\",\"valor\",\"code\",\"key\"]) || rawLabel;\n  const price = toNum(getVal(row, [\"opcion_precio\",\"price\",\"precio\",\"costo\",\"extra\"]));\n\n  const labelStr = norm(rawLabel || rawValue);\n  let valueStr = norm(rawValue || rawLabel || labelStr);\n  if (labelStr === '') continue;\n\n  if (valueStr === '') valueStr = labelStr;\n\n  const key = `${normLower(labelStr)}|${normLower(valueStr)}`;\n  let seenForStep = optionSeen.get(step);\n  if (!seenForStep) {\n    seenForStep = new Set();\n    optionSeen.set(step, seenForStep);\n  }\n  if (seenForStep.has(key)) continue;\n  seenForStep.add(key);\n\n  step.options.push({\n    label: labelStr,\n    value: valueStr,\n    price\n  });\n}\n\n// 3) Ordenar pasos y (opcional) opciones\nfor (const mid of Object.keys(catalog)) {\n  catalog[mid].steps.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));\n}\n\nconst input = $input.first().json;\nconst staticData = $getWorkflowStaticData('global');\nstaticData.catalog = catalog;\n\nreturn [{ json: { ...input, catalogLoaded: true, models: Object.keys(catalog).length } }];\n"
+        "jsCode": "// --- CARGA DATA-DRIVEN DESDE GOOGLE SHEETS (DB_Maquinas + DB_Opciones)\n// Fuentes: nodos \"Leer DB_Maquinas\" y \"Leer DB_Opciones\"\nconst toNum = (v) => {\n  if (v === null || v === undefined) return 0;\n  const s = String(v).replace(/[^0-9.\\-]/g, '');\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? n : 0;\n};\nconst toInt = (v, d=0) => {\n  const n = parseInt(String(v), 10);\n  return Number.isFinite(n) ? n : d;\n};\n\n// getter flexible (tolerante a sin\u00f3nimos/ may\u00fasculas / espacios)\nconst normKey = (k) => String(k || '').toLowerCase().trim().replace(/\\s+/g,'').replace(/[_\\-]/g,'');\nconst getVal = (obj, terms) => {\n  if (!obj) return undefined;\n  const keys = Object.keys(obj);\n  const map = new Map(keys.map(k => [normKey(k), k]));\n  for (const t of terms) {\n    const nk = normKey(t);\n    if (map.has(nk)) return obj[map.get(nk)];\n  }\n  for (const t of terms) {\n    const nk = normKey(t);\n    const partial = keys.find(k => normKey(k).includes(nk));\n    if (partial) return obj[partial];\n  }\n  return undefined;\n};\n\nconst norm = (v) => String(v ?? '').trim().replace(/\\s+/g, ' ');\nconst normLower = (v) => norm(v).toLowerCase();\nconst optionSeen = new WeakMap();\n\n// Nota: en n8n, el nombre exacto de los nodos importa:\nconst maquinasRows = $items(\"Leer DB_Maquinas\").map(i => i.json);\nconst opcionesRows = $items(\"Leer DB_Opciones\").map(i => i.json);\n\nconst catalog = {};\n\n// 1) M\u00e1quinas\nfor (const row of maquinasRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"id\",\"maquina_id\"]);\n  if (!modelo) continue;\n\n  const nombre = getVal(row, [\"nombre\",\"name\",\"descripcion\",\"description\"]) ?? modelo;\n  const basePrice = toNum(getVal(row, [\"precio_base\",\"base_price\",\"price\",\"precio\",\"costo\"]));\n  const plantilla = getVal(row, [\"plantilla\",\"template\",\"docx\",\"archivo\"]);\n\n  catalog[String(modelo)] = {\n    id: String(modelo),\n    name: String(nombre),\n    basePrice,\n    plantilla: plantilla ? String(plantilla) : undefined,\n    steps: []\n  };\n}\n\n// 2) Opciones / Pasos\nfor (const row of opcionesRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"maquina\",\"maquina_id\"]);\n  if (!modelo) continue;\n  const m = catalog[String(modelo)];\n  if (!m) continue;\n\n  const pasoId = getVal(row, [\"paso_id\",\"step_id\",\"paso\",\"step\"]);\n  const pregunta = getVal(row, [\"pregunta\",\"paso_pregunta\",\"question\",\"texto\"]);\n  const orden = toInt(getVal(row, [\"paso_orden\",\"order\",\"orden\"]), 0);\n\n  if (!pasoId) continue;\n\n  let step = m.steps.find(s => s.id === String(pasoId));\n  if (!step) {\n    const questionStr = norm(pregunta);\n    step = { id: String(pasoId), question: questionStr || 'Selecciona una opci\u00f3n', order: orden, options: [] };\n    m.steps.push(step);\n  }\n\n  const rawLabel = getVal(row, [\"opcion_label\",\"label\",\"etiqueta\",\"nombre_opcion\",\"opcion\"]) || getVal(row, [\"opcion label\",\"opcion_label\",\"opcionlabel\"]);\n  const rawValue = getVal(row, [\"opcion_valor\",\"value\",\"valor\",\"code\",\"key\"]) || rawLabel;\n  const price = toNum(getVal(row, [\"opcion_precio\",\"price\",\"precio\",\"costo\",\"extra\"]));\n\n  const labelStr = norm(rawLabel || rawValue);\n  let valueStr = norm(rawValue || rawLabel || labelStr);\n  if (labelStr === '') continue;\n\n  if (valueStr === '') valueStr = labelStr;\n\n  const key = `${normLower(labelStr)}|${normLower(valueStr)}`;\n  let seenForStep = optionSeen.get(step);\n  if (!seenForStep) {\n    seenForStep = new Set();\n    optionSeen.set(step, seenForStep);\n  }\n  if (seenForStep.has(key)) continue;\n  seenForStep.add(key);\n\n  step.options.push({\n    label: labelStr,\n    value: valueStr,\n    price\n  });\n}\n\n// 3) Ordenar pasos y (opcional) opciones\nfor (const mid of Object.keys(catalog)) {\n  catalog[mid].steps.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));\n}\n\nconst input = $input.first().json;\nconst staticData = $getWorkflowStaticData('global');\nstaticData.catalog = catalog;\n\nreturn [{ json: { ...input, catalogLoaded: true, models: Object.keys(catalog).length } }];\n"
       },
       "id": "22590555-ae92-4c24-95f8-306d85a04500",
       "name": "Guardar en Memoria",
@@ -145,6 +145,7 @@
     {
       "parameters": {
         "chatId": "={{ $json.chatId }}",
+        "text": "\ud83d\udc4b *Bienvenido al Cotizador VC999*\n\nSelecciona:",
         "text": "👋 *Bienvenido al Cotizador VC999*\n\nSelecciona el modo:",
         "replyMarkup": "inlineKeyboard",
         "inlineKeyboard": {
@@ -153,7 +154,7 @@
               "row": {
                 "buttons": [
                   {
-                    "text": "🧠 Cotización Avanzada",
+                    "text": "\ud83e\udde0 Cotizaci\u00f3n Avanzada",
                     "additionalFields": {
                       "callback_data": "MENU|AVANZADA"
                     }
@@ -174,7 +175,7 @@
         }
       },
       "id": "19bb0dec-da15-4974-b436-4a7da91fc155",
-      "name": "Enviar Menú",
+      "name": "Enviar Men\u00fa",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
@@ -191,6 +192,7 @@
     },
     {
       "parameters": {
+        "jsCode": "// --- ROUTER MAESTRO (Callback vs Texto) ---\n// Entrada: Normalize Telegram => { chatId, text, raw }\nconst { chatId, text, raw } = $json;\n\nconst staticData = $getWorkflowStaticData('global');\nstaticData.cot = staticData.cot || {};\nconst hasSession = !!staticData.cot?.[chatId];\n\n// Defaults\nlet action = null;\n\n// 1) /start o comandos\nif (raw?.message?.text && raw.message.text.startsWith('/')) {\n  if (raw.message.text.trim().toLowerCase() === '/start') action = 'START';\n  else action = 'START'; // puedes expandir comandos despu\u00e9s\n}\n// 2) Botones (callback_data)\nelse if (raw?.callback_query?.data) {\n  const data = raw.callback_query.data;\n\n  if (data === 'MENU|AVANZADA') action = 'MENU_SELECTION';\n  else {\n    // Formatos esperados:\n    //   MODEL|START\n    //   MODEL|OPT|STEP|VALUE|PRICE\n    action = 'COTIZACION_FLOW';\n  }\n}\n// 3) Texto libre (nombre/correo) cuando ya existe sesi\u00f3n\nelse if (raw?.message?.text && !raw.message.text.startsWith('/') && hasSession) {\n  action = 'COTIZACION_FLOW';\n}\n\nreturn [{ json: { chatId, text, action } }];"
         "jsCode": "// --- ROUTER MAESTRO (Callback vs Texto) ---\n// Entrada: Normalize Telegram => { chatId, text, raw }\nconst { chatId, text, raw } = $json;\n\nconst staticData = $getWorkflowStaticData('global');\nstaticData.cot = staticData.cot || {};\nconst hasSession = !!staticData.cot?.[chatId];\n\n// Defaults\nlet action = null;\n\nconst setMode = (mode) => {\n  if (!mode) return;\n  const current = staticData.cot[chatId] || {};\n  staticData.cot[chatId] = { ...current, mode: mode.toUpperCase() };\n};\n\n// 1) /start o comandos\nif (raw?.message?.text && raw.message.text.startsWith('/')) {\n  action = 'START';\n  staticData.cot[chatId] = {}; // limpiamos sesión previa\n}\n// 2) Botones (callback_data)\nelse if (raw?.callback_query?.data) {\n  const data = raw.callback_query.data;\n\n  if (data === 'MENU|AVANZADA' || data === 'MODE|ADV') {\n    setMode('ADV');\n    action = 'MENU_SELECTION';\n  } else if (data === 'MODE|FAST') {\n    setMode('FAST');\n    action = 'MENU_SELECTION';\n  } else {\n    // Formatos esperados:\n    //   MODEL|START\n    //   MODEL|OPT|STEP|VALUE|PRICE\n    action = 'COTIZACION_FLOW';\n  }\n}\n// 3) Texto libre (nombre/correo) cuando ya existe sesión\nelse if (raw?.message?.text && !raw.message.text.startsWith('/') && hasSession) {\n  action = 'COTIZACION_FLOW';\n}\n\nreturn [{ json: { chatId, text, action } }];\n"
       },
       "id": "bca170ce-f52e-401b-bb41-0ede88b68e7a",
@@ -300,7 +302,7 @@
         }
       },
       "id": "7f5cc95a-2167-4567-873f-1da3882b8eb7",
-      "name": "¿Terminó?",
+      "name": "\u00bfTermin\u00f3?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
@@ -352,7 +354,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// --- GENERADOR DE MENÚ DINÁMICO ---\nconst staticData = $getWorkflowStaticData('global');\nconst catalog = staticData.catalog || {};\nconst models = Object.keys(catalog); // Obtiene lista: [\"CM1100\", \"MDM4121\", etc.]\n\n// Si el catálogo está vacío, advertimos\nif (models.length === 0) {\n  return [{ json: { \n    chatId: $json.chatId, \n    text: \"⚠️ La memoria está vacía. Por favor ejecuta /start para recargar.\", \n    reply_markup: {} \n  }}];\n}\n\n// Construimos los botones (2 por fila)\nconst keyboard = [];\nlet row = [];\n\nmodels.forEach((model, index) => {\n  row.push({\n    text: model, \n    callback_data: `${model}|START` // CLAVE: Esto inicia el flujo de esa máquina\n  });\n\n  if (row.length === 2 || index === models.length - 1) {\n    keyboard.push(row);\n    row = [];\n  }\n});\n\n// Salida lista para tu nodo HTTP Request o Telegram\nreturn [{\n  json: {\n    chatId: $json.chatId,\n    text: \"🏭 *Catálogo VC999 Disponible*\\n\\nSelecciona la máquina que deseas cotizar:\",\n    reply_markup: {\n      inline_keyboard: keyboard\n    }\n  }\n}];"
+        "jsCode": "// --- GENERADOR DE MEN\u00da DIN\u00c1MICO ---\nconst staticData = $getWorkflowStaticData('global');\nconst catalog = staticData.catalog || {};\nconst models = Object.keys(catalog); // Obtiene lista: [\"CM1100\", \"MDM4121\", etc.]\n\n// Si el cat\u00e1logo est\u00e1 vac\u00edo, advertimos\nif (models.length === 0) {\n  return [{ json: { \n    chatId: $json.chatId, \n    text: \"\u26a0\ufe0f La memoria est\u00e1 vac\u00eda. Por favor ejecuta /start para recargar.\", \n    reply_markup: {} \n  }}];\n}\n\n// Construimos los botones (2 por fila)\nconst keyboard = [];\nlet row = [];\n\nmodels.forEach((model, index) => {\n  row.push({\n    text: model, \n    callback_data: `${model}|START` // CLAVE: Esto inicia el flujo de esa m\u00e1quina\n  });\n\n  if (row.length === 2 || index === models.length - 1) {\n    keyboard.push(row);\n    row = [];\n  }\n});\n\n// Salida lista para tu nodo HTTP Request o Telegram\nreturn [{\n  json: {\n    chatId: $json.chatId,\n    text: \"\ud83c\udfed *Cat\u00e1logo VC999 Disponible*\\n\\nSelecciona la m\u00e1quina que deseas cotizar:\",\n    reply_markup: {\n      inline_keyboard: keyboard\n    }\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -361,14 +363,15 @@
         192
       ],
       "id": "8833943f-501a-438f-a3e2-fa81a8ae6716",
-      "name": "Generar menú dinámico"
+      "name": "Generar men\u00fa din\u00e1mico"
     },
     {
       "parameters": {
+        "jsCode": "        const DEBUG = false;\nconst staticData = $getWorkflowStaticData('global');\n        const catalog = staticData.catalog || {};\n        staticData.cot = staticData.cot || {};\n\n        const { chatId, text } = $json;\n\n        // Helpers\n        const money = (n) => {\n          const x = Number(n || 0);\n          return x.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });\n        };\n        const toNum = (v) => {\n          const s = String(v ?? '').replace(/[^0-9.\\-]/g,'');\n          const n = parseFloat(s);\n          return Number.isFinite(n) ? n : 0;\n        };\n        const normText = (v) => String(v ?? '').trim().replace(/\\s+/g, ' ');\n        const optionKey = (label, value) => `${normText(label).toLowerCase()}|${normText(value ?? label).toLowerCase()}`;\n        const isGenericQuestion = (q) => {\n          const normalized = normText(q).toLowerCase();\n          if (!normalized) return true;\n\n          const generics = [\n            'selecciona una opci\u00f3n',\n            'select an option',\n            'choose an option'\n          ];\n\n          return normalized.length < 4 || generics.some((phrase) => normalized.includes(phrase));\n        };\n        const humanizeStepId = (stepId) => {\n          const safe = String(stepId ?? '').trim();\n          const withSpaces = safe\n            .replace(/[_-]+/g, ' ')\n            .replace(/([a-z])([A-Z])/g, '$1 $2')\n            .trim();\n\n          if (!withSpaces) return 'Paso';\n\n          return withSpaces\n            .split(' ')\n            .filter(Boolean)\n            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())\n            .join(' ');\n        };\n\n        // Estado de usuario\n        let userState = staticData.cot[chatId];\n\n        // Detectar tipo de input\n        const isCallback = typeof text === 'string' && text.includes('|');\n        const isStartMachine = isCallback && text.endsWith('|START');\n        const isOpt = isCallback && text.includes('|OPT|');\n\n        // A) Selecci\u00f3n de m\u00e1quina (inicio)\n        if (isStartMachine) {\n          const model = text.split('|')[0];\n          const machine = catalog[model];\n          if (!machine) {\n            return [{ json: { chatId, text: \"\u26a0\ufe0f Error: M\u00e1quina no encontrada. Ejecuta /start.\", reply_markup: {} } }];\n          }\n\n          userState = {\n            stage: \"config\",          // config | await_name | await_email | done\n            machine: model,\n            stepIndex: 0,\n            selections: [],\n            totalPrice: toNum(machine.basePrice),\n            customer: {}\n          };\n        }\n\n        // B) Opci\u00f3n elegida\n        if (isOpt) {\n          const parts = text.split('|');\n          const model = parts[0];\n          const stepId = parts[2];\n          const val = parts[3];\n          const price = toNum(parts[4]);\n\n          if (!userState || userState.machine !== model) {\n            return [{ json: { chatId, text: \"\u26a0\ufe0f Sesi\u00f3n expirada o modelo no coincide. Ejecuta /start.\", reply_markup: {} } }];\n          }\n\n          userState.selections.push({ stepId, value: val, price });\n          userState.totalPrice += price;\n          userState.stepIndex += 1;\n        }\n\n        // C) Texto libre (Nombre / Correo) \u2014 solo si ya terminamos pasos\n        if (!isCallback && userState) {\n          const msg = String(text || '').trim();\n\n          if (userState.stage === \"await_name\") {\n            userState.customer.name = msg;\n            userState.stage = \"await_email\";\n          } else if (userState.stage === \"await_email\") {\n            userState.customer.email = msg;\n            userState.stage = \"done\";\n          }\n        }\n\n        // Validaci\u00f3n de m\u00e1quina\n        if (!userState) {\n          return [{ json: { chatId, text: \"Usa /start y selecciona una m\u00e1quina para iniciar.\", reply_markup: {} } }];\n        }\n\n        const machineConfig = catalog[userState.machine];\n        if (!machineConfig) {\n          return [{ json: { chatId, text: \"\u26a0\ufe0f Cat\u00e1logo no disponible. Ejecuta /start para recargar.\", reply_markup: {} } }];\n        }\n\n        // D) Render de siguiente paso / cierre\n        let response = {};\n        let isFinished = false;\n\n        if (userState.stage === \"config\") {\n          const currentIndex = userState.stepIndex;\n\n          if (currentIndex < machineConfig.steps.length) {\n            const step = machineConfig.steps[currentIndex];\n            const stepOptions = Array.isArray(step.options) ? step.options : [];\n\n            if (stepOptions.length === 0) {\n              const debugInfo = DEBUG ? ` [model=${userState.machine}, step=${step.id ?? currentIndex + 1}, steps=${machineConfig.steps.length}, options=${stepOptions.length}]` : '';\n\n              response = {\n                text: `\u26a0\ufe0f No hay opciones disponibles para el paso \"${step.id ?? currentIndex + 1}\". Usa /start para recargar el cat\u00e1logo o contacta soporte.${debugInfo}`,\n                reply_markup: {}\n              };\n            } else {\n              const inline_keyboard = [];\n              const seenOptions = new Set();\n\n              const normalizeStepId = (stepId) => String(stepId ?? '')\n                .toUpperCase()\n                .trim()\n                .replace(/[\\s_]+/g, '');\n\n              const STEP_FRIENDLY = {\n                \"LID\": \"Lid Height\",\n                \"LIDSIZE\": \"Lid Height\",\n                \"LIDHEIGHT\": \"Lid Height\",\n                \"PUMP\": \"Pump Option\",\n                \"PUMPOPTIONS\": \"Pump Option\",\n                \"GAS\": \"Gas Flush\",\n                \"GASFLUSH\": \"Gas Flush\",\n                \"BIACTIVE\": \"Bi-Active Sealing\",\n                \"BI ACTIVE\": \"Bi-Active Sealing\",\n                \"PAS\": \"Positive Air Sealer\",\n                \"POSITIVEAIRSEALER\": \"Positive Air Sealer\"\n              };\n\n              const prettyLabel = (stepId, label, value) => {\n                const rawLabel = String(label ?? value ?? '').trim();\n                const normalizedId = normalizeStepId(stepId);\n\n                if (rawLabel.length >= 18) return rawLabel;\n\n                const friendly = STEP_FRIENDLY[normalizedId];\n                if (!friendly) return rawLabel;\n\n                const normalizeYesNoDisplay = (str) => {\n                  const normalized = String(str ?? '').trim().toLowerCase();\n                  if ([\"si\", \"s\u00ed\"].includes(normalized)) return \"S\u00ed\";\n                  if ([\"yes\", \"true\", \"y\", \"1\"].includes(normalized)) return \"Yes\";\n                  if ([\"no\", \"false\", \"0\", \"n\"].includes(normalized)) return \"No\";\n                  return str;\n                };\n\n                if ([\"LID\", \"LIDSIZE\", \"LIDHEIGHT\"].includes(normalizedId)) {\n                  const hasInch = /inch/i.test(rawLabel);\n                  const seemsNumber = /^\\s*\\d+(\\.\\d+)?\\s*$/.test(rawLabel);\n                  const enriched = !hasInch && seemsNumber ? `${rawLabel} inch` : rawLabel;\n                  return `${friendly}: ${enriched}`;\n                }\n\n                if ([\"GAS\", \"GASFLUSH\", \"BIACTIVE\", \"BI ACTIVE\", \"PAS\", \"POSITIVEAIRSEALER\"].includes(normalizedId)) {\n                  const display = normalizeYesNoDisplay(rawLabel);\n                  return `${friendly}: ${display}`;\n                }\n\n                if ([\"PUMP\", \"PUMPOPTIONS\"].includes(normalizedId)) {\n                  return `${friendly}: ${rawLabel}`;\n                }\n\n                return `${friendly}: ${rawLabel}`;\n              };\n\n              const questionText = normText(step.question);\n              const stepTitle = isGenericQuestion(questionText)\n                ? humanizeStepId(step.id ?? `Paso ${currentIndex + 1}`)\n                : questionText;\n\n              stepOptions.forEach(opt => {\n                const price = toNum(opt.price);\n                const priceText = price > 0 ? ` (+$${money(price)})` : '';\n                const value = opt.value ?? opt.label ?? 'NA';\n                const key = optionKey(opt.label ?? value, value);\n                if (seenOptions.has(key)) return;\n                seenOptions.add(key);\n\n                const baseLabel = opt.label ?? value;\n                const display = prettyLabel(step.id, baseLabel, value);\n\n                inline_keyboard.push([\n                  {\n                    text: `${display}${priceText}`,\n                    callback_data: `${userState.machine}|OPT|${step.id}|${value}|${price}`\n                  }\n                ]);\n              });\n\n              response = {\n                text:\n`\ud83d\udee0\ufe0f *${userState.machine}* (Paso ${currentIndex + 1}/${machineConfig.steps.length})\n\ud83d\udcb0 Total: $${money(userState.totalPrice)} USD\n\nSelecciona: *${stepTitle}*`,\n                reply_markup: { inline_keyboard }\n              };\n            }\n\n          } else {\n            // terminamos configuraciones -> pedir nombre\n            userState.stage = \"await_name\";\n            isFinished = true;\n\n            response = {\n              text:\n`\u2705 *Cotizaci\u00f3n lista*\nModelo: *${userState.machine}*\nTotal: *$${money(userState.totalPrice)} USD*\n\nEscribe el *Nombre del Cliente*:`\n            };\n          }\n\n        } else if (userState.stage === \"await_name\") {\n          isFinished = true;\n          response = { text: \"\ud83d\udcdd Ahora escribe el *correo del cliente*:\" };\n\n        } else if (userState.stage === \"await_email\") {\n          isFinished = true;\n          response = { text: \"\ud83d\udcdd Ahora escribe el *correo del cliente*:\" };\n\n} else if (userState.stage === \"done\") {\n  const detailedSelections = (userState.selections || []).map((sel) => {\n    const stepId = sel.stepId || sel.step || sel.id || \"\";\n    const stepConfig = (machineConfig.steps || []).find(\n      (s) => String(s.id || \"\").toLowerCase() === String(stepId).toLowerCase()\n    ) || {};\n    const optionMatch = (stepConfig.options || []).find((opt) => {\n      const optVal = String(opt.value ?? opt.label ?? \"\").toLowerCase();\n      const targetVal = String(sel.value ?? \"\").toLowerCase();\n      return optVal === targetVal;\n    }) || {};\n    const friendlyStep = humanizeStepId(stepId || stepConfig.id || \"Paso\");\n    return {\n      stepId: stepId || stepConfig.id || \"STEP\",\n      label: optionMatch.label ?? optionMatch.value ?? sel.label ?? sel.value ?? friendlyStep,\n      value: sel.value ?? optionMatch.value ?? optionMatch.label ?? \"\",\n      price: toNum(sel.price ?? optionMatch.price ?? 0),\n    };\n  });\n\n  const payload = {\n    modelo: userState.machine,\n    customerName: userState.customer.name || \"\",\n    customerEmail: userState.customer.email || \"\",\n    currency: \"USD\",\n    selections: detailedSelections,\n    totalPrice: toNum(userState.totalPrice),\n  };\n\n  response = {\n    text: `\ud83d\udce4 Generando cotizaci\u00f3n y enviando a ${payload.customerEmail}...`,\n    finalQuote: payload,\n    shouldSendQuote: true,\n  };\n  isFinished = true;\n}\n\n        // Persistir estado\n        staticData.cot[chatId] = userState;\n\n        return [{ json: { chatId, ...response, isFinished, userState } }];\n"
         "jsCode": "const DEBUG = false;\nconst staticData = $getWorkflowStaticData('global');\nconst catalog = staticData.catalog || {};\nstaticData.cot = staticData.cot || {};\n\nconst { chatId, text } = $json;\n\n// Helpers\nconst money = (n) => {\n  const x = Number(n || 0);\n  return x.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });\n};\nconst toNum = (v) => {\n  const s = String(v ?? '').replace(/[^0-9.\\-]/g, '');\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? n : 0;\n};\nconst normText = (v) => String(v ?? '').trim().replace(/\\s+/g, ' ');\nconst optionKey = (label, value) => `${normText(label).toLowerCase()}|${normText(value ?? label).toLowerCase()}`;\nconst isGenericQuestion = (q) => {\n  const normalized = normText(q).toLowerCase();\n  if (!normalized) return true;\n\n  const generics = [\n    'selecciona una opción',\n    'select an option',\n    'choose an option'\n  ];\n\n  return normalized.length < 4 || generics.some((phrase) => normalized.includes(phrase));\n};\nconst humanizeStepId = (stepId) => {\n  const safe = String(stepId ?? '').trim();\n  const withSpaces = safe\n    .replace(/[_-]+/g, ' ')\n    .replace(/([a-z])([A-Z])/g, '$1 $2')\n    .trim();\n\n  if (!withSpaces) return 'Paso';\n\n  return withSpaces\n    .split(' ')\n    .filter(Boolean)\n    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())\n    .join(' ');\n};\nconst resolveMode = (state) => (state?.mode || 'ADV').toUpperCase();\nconst formatSelections = (selections) => {\n  if (!Array.isArray(selections) || selections.length === 0) return ['- Sin opciones'];\n\n  return selections.map((sel) => {\n    const stepLabel = humanizeStepId(sel.step ?? 'Paso');\n    const priceText = toNum(sel.price) > 0 ? ` (+$${money(sel.price)} USD)` : ' (+$0 USD)';\n    const valueText = sel.value ?? 'N/A';\n    return `- ${stepLabel}: ${valueText}${priceText}`;\n  });\n};\n\n// Estado de usuario\nlet userState = staticData.cot[chatId];\n\n// Detectar tipo de input\nconst isCallback = typeof text === 'string' && text.includes('|');\nconst isStartMachine = isCallback && text.endsWith('|START');\nconst isOpt = isCallback && text.includes('|OPT|');\n\nlet fastIntroResponse = null;\n\n// A) Selección de máquina (inicio)\nif (isStartMachine) {\n  const model = text.split('|')[0];\n  const machine = catalog[model];\n  if (!machine) {\n    return [{ json: { chatId, text: \"⚠️ Error: Máquina no encontrada. Ejecuta /start.\", reply_markup: {} } }];\n  }\n\n  const mode = resolveMode(userState);\n\n  userState = {\n    mode,\n    stage: mode === 'FAST' ? 'await_customer_name' : 'config',          // config | await_customer_name | await_customer_email | done\n    machine: model,\n    stepIndex: 0,\n    selections: [],\n    totalPrice: toNum(machine.basePrice),\n    customer: {},\n  };\n\n  if (mode === 'FAST') {\n    const steps = Array.isArray(machine.steps) ? machine.steps : [];\n    const selections = [];\n    let totalPrice = toNum(machine.basePrice);\n    const warnings = [];\n\n    steps.forEach((step, idx) => {\n      const options = Array.isArray(step?.options) ? step.options : [];\n      if (options.length === 0) {\n        warnings.push(`Paso ${step?.id ?? idx + 1} sin opciones, se omitió.`);\n        return;\n      }\n\n      const defaultOpt = options.find((opt) => (String(opt.label ?? '')).includes('(Default)')) || options[0];\n      const chosenPrice = toNum(defaultOpt.price);\n\n      selections.push({\n        step: step?.id ?? `step_${idx + 1}`,\n        value: defaultOpt.value ?? defaultOpt.label ?? 'NA',\n        price: chosenPrice,\n      });\n\n      totalPrice += chosenPrice;\n    });\n\n    userState.selections = selections;\n    userState.totalPrice = totalPrice;\n    userState.stepIndex = steps.length;\n\n    const warningText = warnings.length ? `\\n⚠️ ${warnings.join(' ')}` : '';\n    fastIntroResponse = {\n      text: `⚡️ *Modo Rápido activado*\\nSe seleccionaron las opciones por defecto. Escribe el *nombre del cliente*.${warningText}`,\n    };\n  }\n}\n\n// B) Opción elegida\nif (isOpt) {\n  const parts = text.split('|');\n  const model = parts[0];\n  const stepId = parts[2];\n  const val = parts[3];\n  const price = toNum(parts[4]);\n\n  if (!userState || userState.machine !== model) {\n    return [{ json: { chatId, text: \"⚠️ Sesión expirada o modelo no coincide. Ejecuta /start.\", reply_markup: {} } }];\n  }\n\n  if (userState.mode === 'FAST') {\n    return [{ json: { chatId, text: \"⚡️ Estás en Modo Rápido. Las opciones ya fueron auto-seleccionadas. Envía el nombre del cliente.\", reply_markup: {} } }];\n  }\n\n  userState.selections.push({ step: stepId, value: val, price });\n  userState.totalPrice += price;\n  userState.stepIndex += 1;\n}\n\n// C) Texto libre (Nombre / Correo) — solo si ya terminamos pasos\nif (!isCallback && userState) {\n  const msg = normText(text || '');\n\n  if (userState.stage === \"await_customer_name\") {\n    userState.customer.name = msg;\n    userState.stage = \"await_customer_email\";\n\n    staticData.cot[chatId] = userState;\n\n    return [{ json: { chatId, text: \"📝 Ahora escribe el *correo del cliente*:\", reply_markup: {}, isFinished: true, userState } }];\n  } else if (userState.stage === \"await_customer_email\") {\n    userState.customer.email = msg;\n    userState.stage = \"done\";\n\n    const payload = {\n      machine: userState.machine,\n      basePrice: toNum(catalog[userState.machine]?.basePrice),\n      totalPrice: toNum(userState.totalPrice),\n      selections: userState.selections,\n      customer: userState.customer\n    };\n\n    userState.payloadFinal = payload;\n    staticData.cot[chatId] = userState;\n\n    const optionLines = formatSelections(userState.selections).join('\\n');\n    const summaryText =\n`🛠️ *Cotización ${userState.machine}*\n*Máquina:* ${userState.machine}\n*Base:* $${money(payload.basePrice)} USD\n*Opciones:*\n${optionLines}\n*Total:* $${money(payload.totalPrice)} USD\n*Cliente:* ${userState.customer.name || 'N/A'}\n*Correo:* ${userState.customer.email || 'N/A'}\n✅ Confirmo datos. Procediendo a generar y enviar PDF.`;\n\n    return [{ json: { chatId, text: summaryText, reply_markup: {}, isFinished: true, userState, quotePayload: payload } }];\n  }\n}\n\n// Validación de máquina\nif (!userState) {\n  return [{ json: { chatId, text: \"Usa /start y selecciona una máquina para iniciar.\", reply_markup: {} } }];\n}\n\nconst machineConfig = catalog[userState.machine];\nif (!machineConfig) {\n  return [{ json: { chatId, text: \"⚠️ Catálogo no disponible. Ejecuta /start para recargar.\", reply_markup: {} } }];\n}\n\n// D) Render de siguiente paso / cierre\nlet response = fastIntroResponse || {};\nlet isFinished = !!fastIntroResponse;\n\nif (!isFinished && userState.stage === \"config\") {\n  const currentIndex = userState.stepIndex;\n\n  if (currentIndex < machineConfig.steps.length) {\n    const step = machineConfig.steps[currentIndex];\n    const stepOptions = Array.isArray(step.options) ? step.options : [];\n\n    if (stepOptions.length === 0) {\n      const debugInfo = DEBUG ? ` [model=${userState.machine}, step=${step.id ?? currentIndex + 1}, steps=${machineConfig.steps.length}, options=${stepOptions.length}]` : '';\n\n      response = {\n        text: `⚠️ No hay opciones disponibles para el paso \"${step.id ?? currentIndex + 1}\". Usa /start para recargar el catálogo o contacta soporte.${debugInfo}`,\n        reply_markup: {},\n      };\n    } else {\n      const inline_keyboard = [];\n      const seenOptions = new Set();\n\n      const normalizeStepId = (stepId) => String(stepId ?? '')\n        .toUpperCase()\n        .trim()\n        .replace(/[\\s_]+/g, '');\n\n      const STEP_FRIENDLY = {\n        \"LID\": \"Lid Height\",\n        \"LIDSIZE\": \"Lid Height\",\n        \"LIDHEIGHT\": \"Lid Height\",\n        \"PUMP\": \"Pump Option\",\n        \"PUMPOPTIONS\": \"Pump Option\",\n        \"GAS\": \"Gas Flush\",\n        \"GASFLUSH\": \"Gas Flush\",\n        \"BIACTIVE\": \"Bi-Active Sealing\",\n        \"BI ACTIVE\": \"Bi-Active Sealing\",\n        \"PAS\": \"Positive Air Sealer\",\n        \"POSITIVEAIRSEALER\": \"Positive Air Sealer\"\n      };\n\n      const prettyLabel = (stepId, label, value) => {\n        const rawLabel = String(label ?? value ?? '').trim();\n        const normalizedId = normalizeStepId(stepId);\n\n        if (rawLabel.length >= 18) return rawLabel;\n\n        const friendly = STEP_FRIENDLY[normalizedId];\n        if (!friendly) return rawLabel;\n\n        const normalizeYesNoDisplay = (str) => {\n          const normalized = String(str ?? '').trim().toLowerCase();\n          if ([\"si\", \"sí\"].includes(normalized)) return \"Sí\";\n          if ([\"yes\", \"true\", \"y\", \"1\"].includes(normalized)) return \"Yes\";\n          if ([\"no\", \"false\", \"0\", \"n\"].includes(normalized)) return \"No\";\n          return str;\n        };\n\n        if ([\"LID\", \"LIDSIZE\", \"LIDHEIGHT\"].includes(normalizedId)) {\n          const hasInch = /inch/i.test(rawLabel);\n          const seemsNumber = /^\\s*\\d+(\\.\\d+)?\\s*$/.test(rawLabel);\n          const enriched = !hasInch && seemsNumber ? `${rawLabel} inch` : rawLabel;\n          return `${friendly}: ${enriched}`;\n        }\n\n        if ([\"GAS\", \"GASFLUSH\", \"BIACTIVE\", \"BI ACTIVE\", \"PAS\", \"POSITIVEAIRSEALER\"].includes(normalizedId)) {\n          const display = normalizeYesNoDisplay(rawLabel);\n          return `${friendly}: ${display}`;\n        }\n\n        if ([\"PUMP\", \"PUMPOPTIONS\"].includes(normalizedId)) {\n          return `${friendly}: ${rawLabel}`;\n        }\n\n        return `${friendly}: ${rawLabel}`;\n      };\n\n      const questionText = normText(step.question);\n      const stepTitle = isGenericQuestion(questionText)\n        ? humanizeStepId(step.id ?? `Paso ${currentIndex + 1}`)\n        : questionText;\n\n      stepOptions.forEach(opt => {\n        const price = toNum(opt.price);\n        const priceText = price > 0 ? ` (+$${money(price)})` : '';\n        const value = opt.value ?? opt.label ?? 'NA';\n        const key = optionKey(opt.label ?? value, value);\n        if (seenOptions.has(key)) return;\n        seenOptions.add(key);\n\n        const baseLabel = opt.label ?? value;\n        const display = prettyLabel(step.id, baseLabel, value);\n\n        inline_keyboard.push([\n          {\n            text: `${display}${priceText}`,\n            callback_data: `${userState.machine}|OPT|${step.id}|${value}|${price}`\n          }\n        ]);\n      });\n\n      response = {\n        text:\n`🛠️ *${userState.machine}* (Paso ${currentIndex + 1}/${machineConfig.steps.length})\n💰 Total: $${money(userState.totalPrice)} USD\n\nSelecciona: *${stepTitle}*`,\n        reply_markup: { inline_keyboard }\n      };\n    }\n\n  } else {\n    // terminamos configuraciones -> pedir nombre\n    userState.stage = \"await_customer_name\";\n    isFinished = true;\n\n    response = {\n      text:\n`✅ *Cotización lista*\nModelo: *${userState.machine}*\nTotal: *$${money(userState.totalPrice)} USD*\n\nEscribe el *NOMBRE del Cliente*:`\n    };\n  }\n\n} else if (userState.stage === \"await_customer_name\") {\n  isFinished = true;\n  response = { text: \"📝 Ahora escribe el *NOMBRE del cliente*:\" };\n\n} else if (userState.stage === \"await_customer_email\") {\n  isFinished = true;\n  response = { text: \"📝 Ahora escribe el *correo del cliente*:\" };\n\n} else if (userState.stage === \"done\") {\n  const payload = userState.payloadFinal || {\n    machine: userState.machine,\n    basePrice: toNum(machineConfig.basePrice),\n    totalPrice: toNum(userState.totalPrice),\n    selections: userState.selections,\n    customer: userState.customer\n  };\n\n  const optionLines = formatSelections(payload.selections).join('\\n');\n  const summaryText =\n`🛠️ *Cotización ${userState.machine}*\n*Máquina:* ${userState.machine}\n*Base:* $${money(payload.basePrice)} USD\n*Opciones:*\n${optionLines}\n*Total:* $${money(payload.totalPrice)} USD\n*Cliente:* ${payload.customer?.name || 'N/A'}\n*Correo:* ${payload.customer?.email || 'N/A'}\n✅ Confirmo datos. Procediendo a generar y enviar PDF.`;\n\n  response = { text: summaryText, quotePayload: payload };\n  isFinished = true;\n}\n\n// Persistir estado\nstaticData.cot[chatId] = userState;\n\nreturn [{ json: { chatId, ...response, isFinished, userState } }];\n\n"
       },
       "id": "1a09eccc-bcdd-4d34-93c7-272222c5bf19",
-      "name": "Lógica Cotizador",
+      "name": "L\u00f3gica Cotizador",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -426,11 +429,81 @@
         "conditions": {
           "boolean": [
             {
+              "value1": "={{ $json.shouldSendQuote }}",
               "value1": "={{ !!($binary && $binary.data) }}",
               "value2": true
             }
           ]
         }
+      },
+      "id": "7a0dd3b1-8a1c-4f6e-8b09-6ce5987b532c",
+      "name": "\u00bfEnviar a API?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1296,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const quote = $json.finalQuote || {};\nconst userState = $json.userState || {};\nconst chatId = $json.chatId;\n\nconst payload = {\n  modelo: quote.modelo || userState.machine,\n  customerName: quote.customerName || (userState.customer || {}).name,\n  customerEmail: quote.customerEmail || (userState.customer || {}).email,\n  currency: quote.currency || \"USD\",\n  selections: quote.selections || userState.selections || [],\n  totalPrice: Number(quote.totalPrice ?? userState.totalPrice ?? 0),\n};\n\nreturn [{ json: { chatId, payload } }];"
+      },
+      "id": "e7ff7eb1-1031-4e00-8f0c-2e8d28fc4ac9",
+      "name": "Preparar Payload API",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/quote",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {
+          "ignoreResponseCode": true
+        }
+      },
+      "id": "a9d7b08f-dce6-4ab8-a73c-e39fbb62d224",
+      "name": "Enviar a API Python",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1744,
+        272
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "mergeByPosition"
+      },
+      "id": "9558213e-d07f-46f7-b5a4-2d8823a7f40e",
+      "name": "Combinar respuesta API",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 1,
+      "position": [
+        1968,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ok = $json.ok === true;\nconst chatId = $json.chatId;\nconst email = $json.emailedTo || $json.payload?.customerEmail || '';\nconst quoteId = $json.quoteId || '';\n\nlet text;\nif (ok) {\n  const suffix = quoteId ? ` (ID: ${quoteId})` : '';\n  text = `Listo. Cotizaci\u00f3n generada y enviada a ${email || 'el cliente'}.${suffix}`;\n} else {\n  const err = $json.error || $json.message || $json.body || 'Error al generar o enviar la cotizaci\u00f3n.';\n  text = `Error al generar/enviar cotizaci\u00f3n: ${err}`;\n}\n\nreturn [{ json: { chatId, text, reply_markup: {} } }];"
+      },
+      "id": "6f1853b7-7fbc-44f9-9e97-04b4f254a9d5",
+      "name": "Mensaje Resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        272
+      ]
       }
     },
     {
@@ -540,14 +613,14 @@
       "main": [
         [
           {
-            "node": "¿Cargar BD?",
+            "node": "\u00bfCargar BD?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "¿Cargar BD?": {
+    "\u00bfCargar BD?": {
       "main": [
         [
           {
@@ -609,7 +682,7 @@
         ]
       ]
     },
-    "¿Terminó?": {
+    "\u00bfTermin\u00f3?": {
       "main": [
         [
           {
@@ -631,28 +704,28 @@
       "main": [
         [
           {
-            "node": "Enviar Menú",
+            "node": "Enviar Men\u00fa",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Generar menú dinámico",
+            "node": "Generar men\u00fa din\u00e1mico",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Lógica Cotizador",
+            "node": "L\u00f3gica Cotizador",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generar menú dinámico": {
+    "Generar men\u00fa din\u00e1mico": {
       "main": [
         [
           {
@@ -663,11 +736,83 @@
         ]
       ]
     },
-    "Lógica Cotizador": {
+    "L\u00f3gica Cotizador": {
       "main": [
         [
           {
-            "node": "¿Terminó?",
+            "node": "\u00bfTermin\u00f3?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir Cliente": {
+      "main": [
+        [
+          {
+            "node": "\u00bfEnviar a API?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "\u00bfEnviar a API?": {
+      "main": [
+        [
+          {
+            "node": "Preparar Payload API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Payload API": {
+      "main": [
+        [
+          {
+            "node": "Enviar a API Python",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Combinar respuesta API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar a API Python": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Combinar respuesta API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combinar respuesta API": {
+      "main": [
+        [
+          {
+            "node": "Mensaje Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensaje Resultado": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
             "type": "main",
             "index": 0
           }
