@@ -2,14 +2,19 @@
   "name": "Cotizador VC999 - Final (json3)",
   "nodes": [
     {
-      "id": "2a25fdc5-c6e9-4835-b7f0-bd15f439ada8",
-      "name": "¿PDF generado? (json3)",
-      "type": "n8n-nodes-base.if",
+      "parameters": {},
+      "id": "2e96f6d3-5b27-47df-9c1e-4a15d1a7162b",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        320,
+        120,
         320
       ],
+      "notesInFlow": true,
+      "notes": "Este nodo se conecta desde 'Llamar FastAPI Cotización' en el flujo real."
+    },
+    {
       "parameters": {
         "conditions": {
           "boolean": [
@@ -19,27 +24,48 @@
             }
           ]
         }
-      }
+      },
+      "id": "2a25fdc5-c6e9-4835-b7f0-bd15f439ada8",
+      "name": "¿PDF generado? (json3)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        320,
+        320
+      ]
     },
     {
-      "id": "590f8586-ad7b-47a1-92fd-c77f1e858fb7",
-      "name": "Enviar PDF Telegram (json3)",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "parameters": {
+        "functionCode": "const chatId = $json.chatId;\n\nconst email =\n  $json.quotePayload?.customer?.email ||\n  $json.fastapiBody?.email ||\n  $json.userState?.customer?.email ||\n  '';\n\nconst nombre =\n  $json.quotePayload?.customer?.name ||\n  $json.fastapiBody?.nombre_cliente ||\n  $json.userState?.customer?.name ||\n  '';\n\nconst modelo =\n  $json.quotePayload?.machine ||\n  $json.fastapiBody?.modelo ||\n  $json.userState?.machine ||\n  'N/A';\n\nconst total =\n  $json.quotePayload?.totalPrice ??\n  $json.fastapiBody?.precio_cambiado ??\n  $json.userState?.totalPrice ??\n  '';\n\nconst hasEmail = typeof email === 'string' && email.includes('@');\n\nreturn [{\n  json: {\n    ...$json,\n    chatId,\n    email,\n    nombre,\n    modelo,\n    total,\n    hasEmail,\n  },\n  binary: $binary,\n}];"
+      },
+      "id": "7dbf53a0-e4a4-4ce0-96b5-09f0b0865940",
+      "name": "Preparar Email (json3)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
       "position": [
-        640,
-        240
-      ],
+        520,
+        320
+      ]
+    },
+    {
       "parameters": {
         "operation": "sendDocument",
         "chatId": "={{ $json.chatId }}",
         "binaryData": true,
         "document": "data",
         "additionalFields": {
-          "caption": "={{ `📄 Cotización generada\nModelo: ${$json.quotePayload?.machine || $json.fastapiBody?.modelo || 'N/A'}\nCliente: ${$json.quotePayload?.customer?.name || $json.fastapiBody?.nombre_cliente || 'N/A'}\nTotal: $${$json.quotePayload?.totalPrice ?? $json.fastapiBody?.precio_cambiado ?? 'N/A'} USD` }}"
+          "caption": "={{ `📄 Cotización generada\nModelo: ${$json.modelo}\nCliente: ${$json.nombre || 'N/A'}\nTotal: $${$json.total || 'N/A'} USD` }}"
         },
         "binaryProperty": "data"
       },
+      "id": "590f8586-ad7b-47a1-92fd-c77f1e858fb7",
+      "name": "Enviar PDF Telegram (json3)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        760,
+        200
+      ],
       "credentials": {
         "telegramApi": {
           "id": "OPQOt2byzph4aTkf",
@@ -48,24 +74,44 @@
       }
     },
     {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.hasEmail }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "d5cb2e30-d2f1-4f0c-96a5-8fec8a7a5e2d",
+      "name": "¿Email válido? (json3)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        760,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Cotización/ficha técnica VC999",
+        "message": "={{ `Buen día ${$json.nombre || ''},\n\nLe hago llegar la Cotización/ficha técnica de lo solicitado.\n\nQuedo atento a cualquier duda o comentario por whatsapp o correo.` }}",
+        "additionalFields": {
+          "attachments": "={{ ['data'] }}"
+        }
+      },
       "id": "5b26f793-9d17-4d8c-9a2b-65ccf0c3e4f9",
       "name": "Enviar Correo Gmail (json3)",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 1,
       "position": [
-        640,
-        400
+        1000,
+        320
       ],
-      "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "toEmail": "={{ $json.quotePayload?.customer?.email || $json.fastapiBody?.email }}",
-        "subject": "={{ `Cotización VC999 - ${$json.quotePayload?.machine || $json.fastapiBody?.modelo || ''}` }}",
-        "message": "={{ `Hola ${$json.quotePayload?.customer?.name || $json.fastapiBody?.nombre_cliente || ''},\n\nAdjunto tu PDF de cotización ${$json.quotePayload?.machine || $json.fastapiBody?.modelo || ''}.\nTotal estimado: $${$json.quotePayload?.totalPrice ?? $json.fastapiBody?.precio_cambiado ?? ''} USD.\n\nQuedo al pendiente.` }}",
-        "additionalFields": {
-          "attachments": "={{ ['data'] }}"
-        }
-      },
       "credentials": {
         "gmailOAuth2Api": {
           "id": "OugztwQnYIrrbxrz",
@@ -74,35 +120,59 @@
       }
     },
     {
-      "id": "2ceff21b-721c-427b-aec2-16be1d82eec5",
-      "name": "Notificar error PDF (json3)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.3,
-      "position": [
-        640,
-        560
-      ],
       "parameters": {
         "method": "POST",
         "url": "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/sendMessage",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { chat_id: $json.chatId, text: `⚠️ Error al generar tu cotización. Detalles: ${$json.error || $json.details || 'PDF binary missing/IF false.'}` } }}",
+        "jsonBody": "={{ { chat_id: $json.chatId, text: `⚠️ Error al generar tu cotización. Detalles: PDF no disponible.` } }}",
         "options": {}
-      }
+      },
+      "id": "2ceff21b-721c-427b-aec2-16be1d82eec5",
+      "name": "Notificar error PDF (json3)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        760,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { chat_id: $json.chatId, text: `⚠️ PDF generado, pero falta el correo del cliente. Escribe un correo válido para poder enviarlo.` } }}",
+        "options": {}
+      },
+      "id": "c1b5feac-6f44-4c90-ac32-481f0ebc9778",
+      "name": "Notificar error correo (json3)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1000,
+        440
+      ]
     }
   ],
   "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "¿PDF generado? (json3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "¿PDF generado? (json3)": {
       "main": [
         [
           {
-            "node": "Enviar PDF Telegram (json3)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Enviar Correo Gmail (json3)",
+            "node": "Preparar Email (json3)",
             "type": "main",
             "index": 0
           }
@@ -115,6 +185,40 @@
           }
         ]
       ]
+    },
+    "Preparar Email (json3)": {
+      "main": [
+        [
+          {
+            "node": "Enviar PDF Telegram (json3)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Email válido? (json3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Email válido? (json3)": {
+      "main": [
+        [
+          {
+            "node": "Enviar Correo Gmail (json3)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notificar error correo (json3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -122,6 +226,6 @@
     "executionOrder": "v1"
   },
   "pinData": {},
-  "versionId": "bb227d31-6fb6-42e4-a443-d2026c0b1b10",
+  "versionId": "0e7c3b0c-6097-4b78-8c92-8889e4737005",
   "tags": []
 }
