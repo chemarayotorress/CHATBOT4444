@@ -1,0 +1,127 @@
+{
+  "name": "Cotizador VC999 - Final (json3)",
+  "nodes": [
+    {
+      "id": "2a25fdc5-c6e9-4835-b7f0-bd15f439ada8",
+      "name": "¿PDF generado? (json3)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        320,
+        320
+      ],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$binary.data }}",
+              "value2": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "590f8586-ad7b-47a1-92fd-c77f1e858fb7",
+      "name": "Enviar PDF Telegram (json3)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        640,
+        240
+      ],
+      "parameters": {
+        "operation": "sendDocument",
+        "chatId": "={{ $json.chatId }}",
+        "binaryData": true,
+        "document": "data",
+        "additionalFields": {
+          "caption": "={{ `📄 Cotización generada\nModelo: ${$json.quotePayload?.machine || $json.fastapiBody?.modelo || 'N/A'}\nCliente: ${$json.quotePayload?.customer?.name || $json.fastapiBody?.nombre_cliente || 'N/A'}\nTotal: $${$json.quotePayload?.totalPrice ?? $json.fastapiBody?.precio_cambiado ?? 'N/A'} USD` }}"
+        },
+        "binaryProperty": "data"
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "OPQOt2byzph4aTkf",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "id": "5b26f793-9d17-4d8c-9a2b-65ccf0c3e4f9",
+      "name": "Enviar Correo Gmail (json3)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        640,
+        400
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "toEmail": "={{ $json.quotePayload?.customer?.email || $json.fastapiBody?.email }}",
+        "subject": "={{ `Cotización VC999 - ${$json.quotePayload?.machine || $json.fastapiBody?.modelo || ''}` }}",
+        "message": "={{ `Hola ${$json.quotePayload?.customer?.name || $json.fastapiBody?.nombre_cliente || ''},\n\nAdjunto tu PDF de cotización ${$json.quotePayload?.machine || $json.fastapiBody?.modelo || ''}.\nTotal estimado: $${$json.quotePayload?.totalPrice ?? $json.fastapiBody?.precio_cambiado ?? ''} USD.\n\nQuedo al pendiente.` }}",
+        "additionalFields": {
+          "attachments": "={{ ['data'] }}"
+        }
+      },
+      "credentials": {
+        "gmailOAuth2Api": {
+          "id": "OugztwQnYIrrbxrz",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "id": "2ceff21b-721c-427b-aec2-16be1d82eec5",
+      "name": "Notificar error PDF (json3)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        640,
+        560
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { chat_id: $json.chatId, text: `⚠️ Error al generar tu cotización. Detalles: ${$json.error || $json.details || 'PDF binary missing/IF false.'}` } }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "¿PDF generado? (json3)": {
+      "main": [
+        [
+          {
+            "node": "Enviar PDF Telegram (json3)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Enviar Correo Gmail (json3)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notificar error PDF (json3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "versionId": "bb227d31-6fb6-42e4-a443-d2026c0b1b10",
+  "tags": []
+}
