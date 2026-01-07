@@ -511,7 +511,7 @@
         "conditions": {
           "boolean": [
             {
-              "value1": "={ !!($json.chatId || $json.raw?.message?.chat?.id || $json.raw?.callback_query?.message?.chat?.id) }",
+              "value1": "={{ !!($json.chatId || $json.raw?.message?.chat?.id || $json.raw?.callback_query?.message?.chat?.id) }}",
               "value2": true
             }
           ]
@@ -578,7 +578,7 @@
         "conditions": {
           "boolean": [
             {
-              "value1": "={ !!($json.chatId || $json.raw?.message?.chat?.id || $json.raw?.callback_query?.message?.chat?.id) }",
+              "value1": "={{ !!($json.chatId || $json.raw?.message?.chat?.id || $json.raw?.callback_query?.message?.chat?.id) }}",
               "value2": true
             }
           ]
@@ -751,7 +751,7 @@
         "conditions": {
           "boolean": [
             {
-              "value1": "={ !!($json.chatId || $json.raw?.message?.chat?.id || $json.raw?.callback_query?.message?.chat?.id) }",
+              "value1": "={{ !!($json.chatId || $json.raw?.message?.chat?.id || $json.raw?.callback_query?.message?.chat?.id) }}",
               "value2": true
             }
           ]
@@ -827,7 +827,8 @@
           "id": "OPQOt2byzph4aTkf",
           "name": "Telegram account 3"
         }
-      }
+      },
+      "continueOnFail": true
     },
     {
       "parameters": {
