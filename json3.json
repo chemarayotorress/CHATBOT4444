@@ -806,6 +806,7 @@
     },
     {
       "parameters": {
+        "resource": "callbackQuery",
         "operation": "answerCallbackQuery",
         "callbackQueryId": "={{ $json.raw?.callback_query?.id }}",
         "additionalFields": {
