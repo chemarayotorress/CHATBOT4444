@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $getWorkflowStaticData('global');\n\nconst TTL_MIN = 5;\nconst now = Date.now();\nconst loadedAt = Number(data.catalog_cached_at || data.catalogLoadedAt || 0);\nconst expired = !loadedAt || (now - loadedAt) > TTL_MIN * 60 * 1000;\n\nconst catalog = data.catalog;\nlet memoryEmpty = true;\n\nif (!expired && catalog && Object.keys(catalog).length > 0) {\n  let hasOptions = false;\n\n  for (const model of Object.values(catalog)) {\n    if (!model || !Array.isArray(model.steps)) continue;\n    for (const step of model.steps) {\n      if (!step || !Array.isArray(step.options)) continue;\n      if (step.options.length > 0) { hasOptions = true; break; }\n    }\n    if (hasOptions) break;\n  }\n\n  memoryEmpty = !hasOptions;\n} else {\n  memoryEmpty = true; // fuerza recarga si expiró\n}\n\nconst text = $json.text ?? $json.raw?.message?.text ?? $json.raw?.callback_query?.data ?? '';\nconst isStart = typeof text === 'string' && text.trim().toLowerCase() === '/start';\nconst cb = $json.raw?.callback_query?.data || '';\nconst isStartMachine = typeof cb === 'string' && cb.endsWith('|START');\nconst shouldReload = isStart || expired || memoryEmpty || isStartMachine;\n\nconst items = $input.all();\nreturn items.map(item => ({ json: { ...item.json, memoryEmpty, catalogExpired: expired, shouldReload } }));\n"
+        "jsCode": "const data = $getWorkflowStaticData('global');\n\nconst TTL_MIN = 2;\nconst now = Date.now();\nconst loadedAt = Number(data.catalog_cached_at || data.catalogLoadedAt || 0);\nconst expired = !loadedAt || (now - loadedAt) > TTL_MIN * 60 * 1000;\n\nconst catalog = data.catalog;\nlet memoryEmpty = true;\n\nif (!expired && catalog && Object.keys(catalog).length > 0) {\n  let hasOptions = false;\n\n  for (const model of Object.values(catalog)) {\n    if (!model || !Array.isArray(model.steps)) continue;\n    for (const step of model.steps) {\n      if (!step || !Array.isArray(step.options)) continue;\n      if (step.options.length > 0) { hasOptions = true; break; }\n    }\n    if (hasOptions) break;\n  }\n\n  memoryEmpty = !hasOptions;\n} else {\n  memoryEmpty = true; // fuerza recarga si expiró\n}\n\nconst text = $json.text ?? $json.raw?.message?.text ?? $json.raw?.callback_query?.data ?? '';\nconst isStart = typeof text === 'string' && text.trim().toLowerCase() === '/start';\nconst cb = $json.raw?.callback_query?.data || (typeof text === 'string' ? text : '');\nconst isStartMachine = typeof cb === 'string' && cb.endsWith('|START');\nconst forceReload = isStart || isStartMachine;\nconst shouldReload = forceReload || expired || memoryEmpty;\n\nconst items = $input.all();\nreturn items.map(item => ({ json: { ...item.json, memoryEmpty, catalogExpired: expired, forceReload, shouldReload } }));\n"
       },
       "id": "9792867a-edb5-4a57-8a97-66385131e991",
       "name": "Verificar Memoria",
@@ -56,7 +56,7 @@
         "conditions": {
           "boolean": [
             {
-              "value1": "={{ $json.shouldReload }}",
+              "value1": "={{ $json.memoryEmpty || $json.catalogExpired || $json.forceReload }}",
               "value2": true
             }
           ]
@@ -144,7 +144,7 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $json.chatId || $json.raw?.message?.chat?.id || $json.raw?.callback_query?.message?.chat?.id }}",
+        "chatId": "={{ $json.chatId || $node[\"Normalize Telegram\"].json.chatId || $node[\"Telegram Trigger\"].json.message?.chat?.id || $node[\"Telegram Trigger\"].json.callback_query?.message?.chat?.id }}",
         "text": "👋 *Bienvenido al Cotizador VC999*\n\nSelecciona el modo:",
         "replyMarkup": "inlineKeyboard",
         "inlineKeyboard": {
@@ -314,7 +314,7 @@
         "url": "https://api.telegram.org/bot8335208719:AAHyaYQ2wKfjGEWOf9V1Zrp6KOE7HYWbJrY/sendMessage",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ ({ chat_id: ($json.chatId || $json.raw?.message?.chat?.id || $json.raw?.callback_query?.message?.chat?.id), text: $json.text, parse_mode: \"Markdown\", reply_markup: $json.reply_markup || {} }) }}",
+        "jsonBody": "={{ ({ chat_id: ($json.chatId || $node[\"Normalize Telegram\"].json.chatId || $node[\"Telegram Trigger\"].json.message?.chat?.id || $node[\"Telegram Trigger\"].json.callback_query?.message?.chat?.id), text: $json.text, parse_mode: \"Markdown\", reply_markup: $json.reply_markup || {} }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -422,7 +422,7 @@
       ],
       "parameters": {
         "operation": "sendDocument",
-        "chatId": "={{ $json.chatId }}",
+        "chatId": "={{ $json.chatId || $node[\"Normalize Telegram\"].json.chatId || $node[\"Telegram Trigger\"].json.message?.chat?.id || $node[\"Telegram Trigger\"].json.callback_query?.message?.chat?.id }}",
         "binaryData": true,
         "document": "data",
         "additionalFields": {
@@ -472,7 +472,7 @@
         "url": "https://api.telegram.org/bot8335208719:AAHyaYQ2wKfjGEWOf9V1Zrp6KOE7HYWbJrY/sendMessage",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => { const detail = $json.body?.detail || $json.detail || $json.error || 'Revisa servidor'; const runId = $json.fastapiBody?.runId || $json.runId || $json.userState?.runId || 'N/A'; return { chat_id: $json.chatId, text: `No pudimos generar tu cotización\nDetalle: ${detail}\nrunId: ${runId}` }; })() }}",
+        "jsonBody": "={{ (() => { const detail = $json.body?.detail || $json.detail || $json.error || 'Revisa servidor'; const runId = $json.fastapiBody?.runId || $json.runId || $json.userState?.runId || 'N/A'; const chatId = $json.chatId || $node[\"Normalize Telegram\"].json.chatId || $node[\"Telegram Trigger\"].json.message?.chat?.id || $node[\"Telegram Trigger\"].json.callback_query?.message?.chat?.id; if (!chatId) { return { skipped: true, text: `No pudimos generar tu cotización\nDetalle: ${detail}\nrunId: ${runId}` }; } return { chat_id: chatId, text: `No pudimos generar tu cotización\nDetalle: ${detail}\nrunId: ${runId}` }; })() }}",
         "options": {}
       }
     },
@@ -488,6 +488,26 @@
       "parameters": {
         "jsCode": "const res = $json || {};\n\n// Si ya viene binario (HTTP descargó el PDF), preservamos y pasamos el item tal cual.\nif ($binary && $binary.data) {\n  return [{ json: res, binary: $binary }];\n}\n\n// Compatibilidad: si viene en base64, lo convertimos.\nconst pdf64 = res.pdf_base64 || res.pdfBase64 || '';\nif (pdf64) {\n  const buffer = Buffer.from(pdf64, 'base64');\n  const fileName = res.filename || res.fileName || 'cotizacion.pdf';\n  return [{ json: res, binary: { data: { data: buffer, mimeType: 'application/pdf', fileName } } }];\n}\n\n// Sin PDF: devolvemos error para que el flujo caiga a la rama falsa.\nreturn [{ json: { ...res, ok: false, error: 'pdf_missing' } }];\n"
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.chatId || $node[\"Normalize Telegram\"].json.chatId || $node[\"Telegram Trigger\"].json.message?.chat?.id || $node[\"Telegram Trigger\"].json.callback_query?.message?.chat?.id }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "a769aa25-cf36-4f38-b7c8-21a7228b69f4",
+      "name": "¿ChatId error PDF?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        560
+      ]
     }
   ],
   "pinData": {},
@@ -685,7 +705,7 @@
         ],
         [
           {
-            "node": "Notificar error PDF",
+            "node": "¿ChatId error PDF?",
             "type": "main",
             "index": 0
           }
@@ -706,6 +726,18 @@
             "index": 0
           }
         ]
+      ]
+    },
+    "¿ChatId error PDF?": {
+      "main": [
+        [
+          {
+            "node": "Notificar error PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     }
   },
