@@ -191,7 +191,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const { chatId, text, raw } = $json;\n\nconst staticData = $getWorkflowStaticData('global');\nstaticData.cot = staticData.cot || {};\nconst hasSession = !!staticData.cot?.[chatId];\n\nlet action = null;\n\nconst setMode = (mode) => {\n  if (!mode) return;\n  const current = staticData.cot[chatId] || {};\n  staticData.cot[chatId] = { ...current, mode: mode.toUpperCase() };\n};\n\n// 1) /start o comandos\nif (raw?.message?.text && raw.message.text.startsWith('/')) {\n  action = 'START';\n\n  // Limpia sesión\n  staticData.cot[chatId] = {};\n\n  // Fuerza recarga de catálogo desde Google Sheets\n  staticData.catalog = null;\n  staticData.catalogLoadedAt = 0;\n}\n\n// 2) Botones (callback_data)\nelse if (raw?.callback_query?.data) {\n  const data = raw.callback_query.data;\n\n  if (data === 'MENU|AVANZADA' || data === 'MODE|ADV') {\n    setMode('ADV');\n    action = 'MENU_SELECTION';\n  } else if (data === 'MODE|FAST') {\n    setMode('FAST');\n    action = 'MENU_SELECTION';\n  } else {\n    action = 'COTIZACION_FLOW';\n  }\n}\n\n// 3) Texto libre cuando ya existe sesión\nelse if (raw?.message?.text && !raw.message.text.startsWith('/') && hasSession) {\n  action = 'COTIZACION_FLOW';\n}\n\nreturn [{ json: { chatId, text, action } }];"
+        "jsCode": "const { chatId, text, raw } = $json;\n\nconst staticData = $getWorkflowStaticData('global');\nstaticData.cot = staticData.cot || {};\nconst hasSession = !!staticData.cot?.[chatId];\n\nlet action = null;\n\nconst setMode = (mode) => {\n  if (!mode) return;\n  const current = staticData.cot[chatId] || {};\n  staticData.cot[chatId] = { ...current, mode: mode.toUpperCase() };\n};\n\n// 1) /start o comandos\nif (raw?.message?.text && raw.message.text.startsWith('/')) {\n  action = 'START';\n\n  // Limpia sesión\n  staticData.cot[chatId] = {};\n\n  // Fuerza recarga de catálogo desde Google Sheets\n  staticData.catalog = null;\n  staticData.catalogLoadedAt = 0;\n}\n\n// 2) Botones (callback_data)\nelse if (raw?.callback_query?.data) {\n  const data = raw.callback_query.data;\n\n  if (data === 'MENU|AVANZADA' || data === 'MODE|ADV') {\n    setMode('ADV');\n    action = 'MENU_SELECTION';\n  } else if (data === 'MODE|FAST') {\n    setMode('FAST');\n    action = 'MENU_SELECTION';\n  } else {\n    action = 'COTIZACION_FLOW';\n  }\n}\n\n// 3) Texto libre cuando ya existe sesión\nelse if (raw?.message?.text && !raw.message.text.startsWith('/') && hasSession) {\n  action = 'COTIZACION_FLOW';\n}\n\n// 4) Texto libre sin sesión -> mostrar menú\nelse if (raw?.message?.text && !raw.message.text.startsWith('/') && !hasSession) {\n  action = 'START';\n}\n\nif (!action) {\n  action = 'START';\n}\n\nreturn [{ json: { chatId, text, action } }];"
       },
       "id": "bca170ce-f52e-401b-bb41-0ede88b68e7a",
       "name": "Router Maestro",
@@ -217,7 +217,7 @@
                 "conditions": [
                   {
                     "id": "rule-1-condition-1",
-                    "leftValue": "={{ $json.action }}",
+                    "leftValue": "={{ $json.action || 'START' }}",
                     "rightValue": "START",
                     "operator": {
                       "type": "string",
@@ -240,7 +240,7 @@
                 "conditions": [
                   {
                     "id": "rule-2-condition-1",
-                    "leftValue": "={{ $json.action }}",
+                    "leftValue": "={{ $json.action || 'START' }}",
                     "rightValue": "MENU_SELECTION",
                     "operator": {
                       "type": "string",
@@ -263,7 +263,7 @@
                 "conditions": [
                   {
                     "id": "rule-3-condition-1",
-                    "leftValue": "={{ $json.action }}",
+                    "leftValue": "={{ $json.action || 'START' }}",
                     "rightValue": "COTIZACION_FLOW",
                     "operator": {
                       "type": "string",
