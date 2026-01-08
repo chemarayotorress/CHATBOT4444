@@ -311,7 +311,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot8335208719:AAHyaYQ2wKfjGEWOf9V1Zrp6KOE7HYWbJrY/sendMessage",
+        "url": "={{ 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/sendMessage' }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ ({ chat_id: $json.chatId, text: $json.text, parse_mode: \"Markdown\", reply_markup: $json.reply_markup || {} }) }}",
@@ -472,7 +472,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot8335208719:AAHyaYQ2wKfjGEWOf9V1Zrp6KOE7HYWbJrY/sendMessage",
+        "url": "={{ 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/sendMessage' }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ (() => { const detail = $json.body?.detail || $json.detail || $json.error || 'Revisa servidor'; const runId = $json.fastapiBody?.runId || $json.runId || $json.userState?.runId || 'N/A'; return { chat_id: $json.chatId, text: `No pudimos generar tu cotización\nDetalle: ${detail}\nrunId: ${runId}` }; })() }}",

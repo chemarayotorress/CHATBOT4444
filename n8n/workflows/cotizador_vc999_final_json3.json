@@ -1,0 +1,347 @@
+{
+  "name": "Cotizador VC999 - Final (json3)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -940,
+        -120
+      ],
+      "id": "b1c3b4d1-07a7-4ed1-9b8e-3c843b8ecf8a",
+      "name": "Telegram Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normaliza el payload del Telegram Trigger a un esquema común\n// Outputs: { chatId, text, action, raw }\n\nconst raw = $json;\n\n// chat id puede venir en distintas rutas\nconst chatId = raw?.message?.chat?.id ?? raw?.callback_query?.message?.chat?.id ?? raw?.chatId;\n\n// texto/acción\nconst text = raw?.message?.text ?? raw?.callback_query?.data ?? raw?.text ?? '';\n\n// acción de alto nivel\nlet action = 'TEXT';\nif (text === '/start') action = 'START';\nif (text === '/reload') action = 'RELOAD';\n\nreturn [{\n  json: {\n    chatId,\n    text,\n    action,\n    raw,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -700,
+        -120
+      ],
+      "id": "3c8c7d2a-6e1c-4e1f-a1c6-968e1784e2b4",
+      "name": "Normalize Telegram"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.chatId }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        -120
+      ],
+      "id": "a45186d4-3390-4c02-8852-2f9d4d9ac93a",
+      "name": "¿ChatId disponible?"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { error: 'missing_chat_id', message: 'chatId no disponible para enviar Telegram', input: $json } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        40
+      ],
+      "id": "d0a0cf76-0f51-4f1a-8a32-1ab7a6d5b2e8",
+      "name": "Salida error chatId"
+    },
+    {
+      "parameters": {
+        "resource": "callbackQuery",
+        "operation": "answerCallbackQuery",
+        "callbackQueryId": "={{ $json.raw?.callback_query?.id }}",
+        "additionalFields": {
+          "text": "Procesando...",
+          "show_alert": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        -260
+      ],
+      "id": "5d7f4a26-3f4c-4db1-9a2e-6c4e4a35e4d4",
+      "name": "Ack Callback Query",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.raw?.callback_query?.id }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        -260
+      ],
+      "id": "a6d7f2a0-2b26-4b6a-83cd-03e53a5b9ad1",
+      "name": "¿Callback Query?"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "Catalogo_Maquinas_VC999_full",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DB_Maquinas",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -20,
+        -120
+      ],
+      "id": "ef40549a-42fe-4c2a-a82f-e9577f820f0e",
+      "name": "Leer DB_Maquinas",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "xxx",
+          "name": "manuel.rayotorresvc999@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "Catalogo_Maquinas_VC999_full",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DB_Opciones",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -20,
+        40
+      ],
+      "id": "d8c2c6bb-5c61-47d7-8c44-f2b87fd8c1f4",
+      "name": "Leer DB_Opciones",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "xxx",
+          "name": "manuel.rayotorresvc999@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "Catalogo_Maquinas_VC999_full",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DB_Precios",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -20,
+        200
+      ],
+      "id": "b2b6a6e1-7d1d-47f5-8c73-319f94d13a21",
+      "name": "Leer DB_Precios",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "xxx",
+          "name": "manuel.rayotorresvc999@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/*\n  Guarda catálogo en staticData (cache) para evitar leer Sheets en cada interacción.\n  Soporta /reload.\n*/\n\nconst staticData = this.getWorkflowStaticData('global');\nconst now = Date.now();\n\n// Entradas\nconst machinesRows = $items('Leer DB_Maquinas').map(i => i.json);\nconst optionsRows  = $items('Leer DB_Opciones').map(i => i.json);\nconst preciosRows  = $items('Leer DB_Precios').map(i => i.json);\n\n// Helpers\nconst toNum = (v) => {\n  if (v === null || v === undefined) return 0;\n  const s = String(v).replace(/,/g, '').trim();\n  const n = Number(s);\n  return Number.isFinite(n) ? n : 0;\n};\n\n// Construir catalog\nconst catalog = {};\nfor (const r of machinesRows) {\n  const model = String(r.modelo || '').trim();\n  if (!model) continue;\n  catalog[model] = {\n    modelo: model,\n    nombre: r.nombre || model,\n    precio_base: toNum(r.precio_base),\n    plantilla: r.plantilla || '',\n    opciones: {},\n    precios: {},\n  };\n}\n\n// Mapear precios por máquina/opción (DB_Precios)\nfor (const p of preciosRows) {\n  const model = String(p.modelo || '').trim();\n  if (!model || !catalog[model]) continue;\n  const key = String(p.opcion_key || p.key || '').trim();\n  if (!key) continue;\n  catalog[model].precios[key] = {\n    label: p.label || key,\n    precio: toNum(p.precio),\n    grupo: p.grupo || '',\n    orden: toNum(p.orden),\n  };\n}\n\n// Opciones (DB_Opciones)\n// Nota: aquí solo guardamos estructura; el precio final lo resuelves desde catalog[model].precios\nfor (const o of optionsRows) {\n  const model = String(o.modelo || '').trim();\n  if (!model || !catalog[model]) continue;\n  const step = String(o.step || '').trim();\n  const key  = String(o.key || '').trim();\n  if (!step || !key) continue;\n\n  if (!catalog[model].opciones[step]) catalog[model].opciones[step] = [];\n\n  catalog[model].opciones[step].push({\n    key,\n    label: o.label || key,\n    placeholder: o.placeholder || '',\n    type: o.type || 'toggle',\n    default: String(o.default || '').toLowerCase() === 'true',\n    orden: toNum(o.orden),\n    group: o.group || '',\n  });\n}\n\n// Ordenar\nfor (const model of Object.keys(catalog)) {\n  for (const step of Object.keys(catalog[model].opciones)) {\n    catalog[model].opciones[step].sort((a,b) => (a.orden||0) - (b.orden||0));\n  }\n}\n\nstaticData.catalog = catalog;\nstaticData.catalogLoadedAt = now;\nstaticData.catalog_cached_at = staticData.catalogLoadedAt;\n\nreturn [{ json: { ...$json, catalogLoaded: true, models: Object.keys(catalog).length } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        40
+      ],
+      "id": "a62e5b8c-7f0c-4f3c-9a12-7f7bafc1a8a7",
+      "name": "Guardar en Memoria"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/sendMessage' }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParametersJson": "={\n  \"chat_id\": {{$json.chatId}},\n  \"text\": {{$json.textToSend}},\n  \"parse_mode\": \"MarkdownV2\"\n}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        -260
+      ],
+      "id": "b51b4d7a-15a8-40e6-8a7a-8121cd9bfb1e",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/sendMessage' }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParametersJson": "={\n  \"chat_id\": {{$json.chatId}},\n  \"text\": {{$json.errorText}},\n  \"parse_mode\": \"MarkdownV2\"\n}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        -20
+      ],
+      "id": "bf2a6f7c-3d39-4bfb-8d18-02b1d115a5d9",
+      "name": "Notificar error PDF"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/sendMessage' }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParametersJson": "={\n  \"chat_id\": {{$json.chatId}},\n  \"text\": {{$json.errorText}},\n  \"parse_mode\": \"MarkdownV2\"\n}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        180
+      ],
+      "id": "0a7b8b10-5a31-4a9c-9d64-c1f1a0b7b761",
+      "name": "Notificar error FastAPI"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/editMessageText' }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParametersJson": "={\n  \"chat_id\": {{$json.chatId}},\n  \"message_id\": {{$json.messageId}},\n  \"text\": {{$json.textToSend}},\n  \"parse_mode\": \"MarkdownV2\",\n  \"reply_markup\": {{$json.replyMarkup}}\n}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        -460
+      ],
+      "id": "4a7c7e8d-1a76-4d14-a8e8-ec18a85d81c0",
+      "name": "Editar mensaje Telegram"
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Telegram": {
+      "main": [
+        [
+          {
+            "node": "¿ChatId disponible?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿ChatId disponible?": {
+      "main": [
+        [
+          {
+            "node": "¿Callback Query?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Salida error chatId",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Callback Query?": {
+      "main": [
+        [
+          {
+            "node": "Ack Callback Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Ack Callback Query": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "v1",
+  "meta": {
+    "instanceId": "local"
+  },
+  "id": "local"
+}
