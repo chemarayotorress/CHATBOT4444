@@ -324,7 +324,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot8335208719:AAHyaYQ2wKfjGEWOf9V1Zrp6KOE7HYWbJrY/sendMessage",
+        "url": "={{ 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/sendMessage' }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ ({ chat_id: ($json.chatId || $json.raw?.message?.chat?.id || $json.raw?.callback_query?.message?.chat?.id), text: $json.text, parse_mode: \"Markdown\", reply_markup: $json.reply_markup || {} }) }}",
@@ -484,7 +484,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot8335208719:AAHyaYQ2wKfjGEWOf9V1Zrp6KOE7HYWbJrY/sendMessage",
+        "url": "={{ 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/sendMessage' }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ (() => { const detail = $json.body?.detail || $json.detail || $json.error?.message || $json.error || $json.message || 'Revisa servidor'; const runId = $json.fastapiBody?.runId || $json.runId || $json.userState?.runId || 'N/A'; const chatId = $json.chatId || $json.raw?.message?.chat?.id || $json.raw?.callback_query?.message?.chat?.id; return { chat_id: chatId, text: `No pudimos generar tu cotización\nDetalle: ${detail}\nrunId: ${runId}\nVerifica que FastAPI esté corriendo y ngrok apuntando al puerto correcto.` }; })() }}",
@@ -596,7 +596,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot8335208719:AAHyaYQ2wKfjGEWOf9V1Zrp6KOE7HYWbJrY/sendMessage",
+        "url": "={{ 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/sendMessage' }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ (() => { const chatId = $json.chatId || $json.raw?.message?.chat?.id || $json.raw?.callback_query?.message?.chat?.id; const runId = $json.runId || $json.fastapiBody?.runId || $json.userState?.runId || 'N/A'; return { chat_id: chatId, text: `Servidor de cotización no responde. Verifica FastAPI/ngrok y reintenta.\nrunId: ${runId}` }; })() }}",
@@ -833,7 +833,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot8335208719:AAHyaYQ2wKfjGEWOf9V1Zrp6KOE7HYWbJrY/editMessageText",
+        "url": "={{ 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/editMessageText' }}",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ ({ chat_id: $json.chatId, message_id: $json.raw?.callback_query?.message?.message_id, text: $json.text, parse_mode: \"Markdown\", reply_markup: $json.reply_markup || {} }) }}",
