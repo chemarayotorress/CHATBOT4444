@@ -53,7 +53,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $getWorkflowStaticData('global');\n\nconst TTL_MINUTES = 5;\nconst now = Date.now();\nconst loadedAt = Number(data.catalog_cached_at || data.catalogLoadedAt || 0);\nconst expired = !loadedAt || (now - loadedAt) > TTL_MINUTES * 60 * 1000;\n\nconst catalog = data.catalog;\nlet memoryEmpty = true;\n\nif (!expired && catalog && Object.keys(catalog).length > 0) {\n  let hasOptions = false;\n\n  for (const model of Object.values(catalog)) {\n    if (!model || !Array.isArray(model.steps)) continue;\n    for (const step of model.steps) {\n      if (!step || !Array.isArray(step.options)) continue;\n      if (step.options.length > 0) { hasOptions = true; break; }\n    }\n    if (hasOptions) break;\n  }\n\n  memoryEmpty = !hasOptions;\n} else {\n  memoryEmpty = true; // fuerza recarga si expiró\n}\n\nconst text = $json.text ?? $json.raw?.message?.text ?? $json.raw?.callback_query?.data ?? '';\nconst normalizedText = typeof text === 'string' ? text.trim().toLowerCase() : '';\nconst isStart = normalizedText === '/start';\nconst isReload = normalizedText === '/reload';\nconst forceReload = isReload || isStart;\nconst shouldReload = forceReload || expired || memoryEmpty;\n\nconst items = $input.all();\nreturn items.map(item => ({ json: { ...item.json, memoryEmpty, catalogExpired: expired, forceReload, shouldReload } }));\n"
+        "jsCode": "const data = $getWorkflowStaticData('global');\n\nconst TTL_DAYS = 90;\nconst now = Date.now();\nconst loadedAt = Number(data.catalog_cached_at || data.catalogLoadedAt || 0);\nconst expired = !loadedAt || (now - loadedAt) > TTL_DAYS * 24 * 60 * 60 * 1000;\n\nconst catalog = data.catalog;\nlet memoryEmpty = true;\n\nif (!expired && catalog && Object.keys(catalog).length > 0) {\n  let hasOptions = false;\n\n  for (const model of Object.values(catalog)) {\n    if (!model || !Array.isArray(model.steps)) continue;\n    for (const step of model.steps) {\n      if (!step || !Array.isArray(step.options)) continue;\n      if (step.options.length > 0) { hasOptions = true; break; }\n    }\n    if (hasOptions) break;\n  }\n\n  memoryEmpty = !hasOptions;\n} else {\n  memoryEmpty = true; // fuerza recarga si expiró\n}\n\nconst text = $json.text ?? $json.raw?.message?.text ?? $json.raw?.callback_query?.data ?? '';\nconst normalizedText = typeof text === 'string' ? text.trim().toLowerCase() : '';\nconst isReload = normalizedText === '/reload';\nconst forceReload = isReload;\nconst shouldReload = forceReload || expired || memoryEmpty;\n\nconst items = $input.all();\nreturn items.map(item => ({ json: { ...item.json, memoryEmpty, catalogExpired: expired, forceReload, shouldReload } }));\n"
       },
       "id": "9792867a-edb5-4a57-8a97-66385131e991",
       "name": "Verificar Memoria",
@@ -144,7 +144,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// --- CARGA DATA-DRIVEN DESDE GOOGLE SHEETS (DB_Maquinas + DB_Opciones)\n// Fuentes: nodos \"Leer DB_Maquinas\" y \"Leer DB_Opciones\"\nconst toNum = (v) => {\n  if (v === null || v === undefined) return 0;\n  const s = String(v).replace(/[^0-9.\\-]/g, '');\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? n : 0;\n};\nconst toInt = (v, d=0) => {\n  const n = parseInt(String(v), 10);\n  return Number.isFinite(n) ? n : d;\n};\n\n// getter flexible (tolerante a sinónimos/ mayúsculas / espacios)\nconst normKey = (k) => String(k || '').toLowerCase().trim().replace(/\\s+/g,'').replace(/[_\\-]/g,'');\nconst getVal = (obj, terms) => {\n  if (!obj) return undefined;\n  const keys = Object.keys(obj);\n  const map = new Map(keys.map(k => [normKey(k), k]));\n  for (const t of terms) {\n    const nk = normKey(t);\n    if (map.has(nk)) return obj[map.get(nk)];\n  }\n  for (const t of terms) {\n    const nk = normKey(t);\n    const partial = keys.find(k => normKey(k).includes(nk));\n    if (partial) return obj[partial];\n  }\n  return undefined;\n};\n\nconst norm = (v) => String(v ?? '').trim().replace(/\\s+/g, ' ');\nconst normLower = (v) => norm(v).toLowerCase();\nconst optionSeen = new WeakMap();\n\n// Nota: en n8n, el nombre exacto de los nodos importa:\nconst maquinasRows = $items(\"Leer DB_Maquinas\").map(i => i.json);\nconst opcionesRows = $items(\"Leer DB_Opciones\").map(i => i.json);\n\nconst catalog = {};\n\n// 1) Máquinas\nfor (const row of maquinasRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"id\",\"maquina_id\"]);\n  if (!modelo) continue;\n\n  const nombre = getVal(row, [\"nombre\",\"name\",\"descripcion\",\"description\"]) ?? modelo;\n  const basePrice = toNum(getVal(row, [\"precio_base\",\"base_price\",\"price\",\"precio\",\"costo\"]));\n  const plantilla = getVal(row, [\"plantilla\",\"template\",\"docx\",\"archivo\"]);\n\n  catalog[String(modelo)] = {\n    id: String(modelo),\n    name: String(nombre),\n    basePrice,\n    plantilla: plantilla ? String(plantilla) : undefined,\n    steps: []\n  };\n}\n\n// 2) Opciones / Pasos\nfor (const row of opcionesRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"maquina\",\"maquina_id\"]);\n  if (!modelo) continue;\n  const m = catalog[String(modelo)];\n  if (!m) continue;\n\n  const pasoId = getVal(row, [\"paso_id\",\"step_id\",\"paso\",\"step\"]);\n  const pregunta = getVal(row, [\"pregunta\",\"paso_pregunta\",\"question\",\"texto\"]);\n  const orden = toInt(getVal(row, [\"paso_orden\",\"order\",\"orden\"]), 0);\n\n  if (!pasoId) continue;\n\n  let step = m.steps.find(s => s.id === String(pasoId));\n  if (!step) {\n    const questionStr = norm(pregunta);\n    step = { id: String(pasoId), question: questionStr || 'Selecciona una opción', order: orden, options: [] };\n    m.steps.push(step);\n  }\n\n  const rawLabel = getVal(row, [\"opcion_label\",\"label\",\"etiqueta\",\"nombre_opcion\",\"opcion\"]) || getVal(row, [\"opcion label\",\"opcion_label\",\"opcionlabel\"]);\n  const rawValue = getVal(row, [\"opcion_valor\",\"value\",\"valor\",\"code\",\"key\"]) || rawLabel;\n  const price = toNum(getVal(row, [\"opcion_precio\",\"price\",\"precio\",\"costo\",\"extra\"]));\n\n  const labelStr = norm(rawLabel || rawValue);\n  let valueStr = norm(rawValue || rawLabel || labelStr);\n  if (labelStr === '') continue;\n\n  if (valueStr === '') valueStr = labelStr;\n\n  const key = `${normLower(labelStr)}|${normLower(valueStr)}`;\n  let seenForStep = optionSeen.get(step);\n  if (!seenForStep) {\n    seenForStep = new Set();\n    optionSeen.set(step, seenForStep);\n  }\n  if (seenForStep.has(key)) continue;\n  seenForStep.add(key);\n\n  step.options.push({\n    label: labelStr,\n    value: valueStr,\n    price\n  });\n}\n\n// 3) Ordenar pasos y (opcional) opciones\nfor (const mid of Object.keys(catalog)) {\n  catalog[mid].steps.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));\n}\n\nconst base = $items(\"Verificar Memoria\")?.[0]?.json || $items(\"Normalize Telegram\")?.[0]?.json || $json;\nconst staticData = $getWorkflowStaticData('global');\nstaticData.catalog = catalog;\nstaticData.catalogLoadedAt = Date.now();\nstaticData.catalog_cached_at = staticData.catalogLoadedAt;\n\nreturn [{ json: { ...base, catalogLoaded: true, models: Object.keys(catalog).length } }];\n"
+        "jsCode": "// --- CARGA DATA-DRIVEN DESDE GOOGLE SHEETS (DB_Maquinas + DB_Opciones)\n// Fuentes: nodos \"Leer DB_Maquinas\" y \"Leer DB_Opciones\"\nconst toNum = (v) => {\n  if (v === null || v === undefined) return 0;\n  const s = String(v).replace(/[^0-9.\\-]/g, '');\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? n : 0;\n};\nconst toInt = (v, d=0) => {\n  const n = parseInt(String(v), 10);\n  return Number.isFinite(n) ? n : d;\n};\n\n// getter flexible (tolerante a sinónimos/ mayúsculas / espacios)\nconst normKey = (k) => String(k || '').toLowerCase().trim().replace(/\\s+/g,'').replace(/[_\\-]/g,'');\nconst getVal = (obj, terms) => {\n  if (!obj) return undefined;\n  const keys = Object.keys(obj);\n  const map = new Map(keys.map(k => [normKey(k), k]));\n  for (const t of terms) {\n    const nk = normKey(t);\n    if (map.has(nk)) return obj[map.get(nk)];\n  }\n  for (const t of terms) {\n    const nk = normKey(t);\n    const partial = keys.find(k => normKey(k).includes(nk));\n    if (partial) return obj[partial];\n  }\n  return undefined;\n};\n\nconst norm = (v) => String(v ?? '').trim().replace(/\\s+/g, ' ');\nconst normLower = (v) => norm(v).toLowerCase();\nconst isActive = (v) => {\n  if (typeof v === 'boolean') return v;\n  const s = String(v ?? '').trim().toLowerCase();\n  return ['true','1','yes','si','sí','y'].includes(s);\n};\nconst optionSeen = new WeakMap();\n\n// Nota: en n8n, el nombre exacto de los nodos importa:\nconst maquinasRows = $items(\"Leer DB_Maquinas\").map(i => i.json);\nconst opcionesRows = $items(\"Leer DB_Opciones\").map(i => i.json);\nconst preciosRows = $items(\"Leer DB_Precios\").map(i => i.json);\n\nconst catalog = {};\nconst priceMap = new Map();\n\n// 0) Precios (override desde DB_Precios)\nfor (const row of preciosRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"maquina\",\"maquina_id\"]);\n  const paso = getVal(row, [\"paso\",\"paso_id\",\"step\",\"step_id\"]);\n  const opcionValor = getVal(row, [\"opcion_valor\",\"value\",\"valor\",\"code\",\"key\"]);\n  const activo = getVal(row, [\"activo\",\"active\",\"habilitado\"]);\n  if (!isActive(activo)) continue;\n  if (!modelo || !paso || !opcionValor) continue;\n  const key = `${normLower(modelo)}|${normLower(paso)}|${normLower(opcionValor)}`;\n  const precio = toNum(getVal(row, [\"precio_extra_usd\",\"precio\",\"price\",\"opcion_precio\",\"extra\"]));\n  priceMap.set(key, precio);\n}\n\n// 1) Máquinas\nfor (const row of maquinasRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"id\",\"maquina_id\"]);\n  if (!modelo) continue;\n\n  const nombre = getVal(row, [\"nombre\",\"name\",\"descripcion\",\"description\"]) ?? modelo;\n  const basePrice = toNum(getVal(row, [\"precio_base\",\"base_price\",\"price\",\"precio\",\"costo\"]));\n  const plantilla = getVal(row, [\"plantilla\",\"template\",\"docx\",\"archivo\"]);\n\n  catalog[String(modelo)] = {\n    id: String(modelo),\n    name: String(nombre),\n    basePrice,\n    plantilla: plantilla ? String(plantilla) : undefined,\n    steps: []\n  };\n}\n\n// 2) Opciones / Pasos\nfor (const row of opcionesRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"maquina\",\"maquina_id\"]);\n  if (!modelo) continue;\n  const m = catalog[String(modelo)];\n  if (!m) continue;\n\n  const pasoId = getVal(row, [\"paso_id\",\"step_id\",\"paso\",\"step\"]);\n  const pregunta = getVal(row, [\"pregunta\",\"paso_pregunta\",\"question\",\"texto\"]);\n  const orden = toInt(getVal(row, [\"paso_orden\",\"order\",\"orden\"]), 0);\n\n  if (!pasoId) continue;\n\n  let step = m.steps.find(s => s.id === String(pasoId));\n  if (!step) {\n    const questionStr = norm(pregunta);\n    step = { id: String(pasoId), question: questionStr || 'Selecciona una opción', order: orden, options: [] };\n    m.steps.push(step);\n  }\n\n  const rawLabel = getVal(row, [\"opcion_label\",\"label\",\"etiqueta\",\"nombre_opcion\",\"opcion\"]) || getVal(row, [\"opcion label\",\"opcion_label\",\"opcionlabel\"]);\n  const rawValue = getVal(row, [\"opcion_valor\",\"value\",\"valor\",\"code\",\"key\"]) || rawLabel;\n\n  const labelStr = norm(rawLabel || rawValue);\n  let valueStr = norm(rawValue || rawLabel || labelStr);\n  if (labelStr === '') continue;\n\n  if (valueStr === '') valueStr = labelStr;\n\n  const priceKey = `${normLower(modelo)}|${normLower(pasoId)}|${normLower(valueStr)}`;\n  const price = priceMap.has(priceKey) ? priceMap.get(priceKey) : toNum(getVal(row, [\"opcion_precio\",\"price\",\"precio\",\"costo\",\"extra\"]));\n\n  const key = `${normLower(labelStr)}|${normLower(valueStr)}`;\n  let seenForStep = optionSeen.get(step);\n  if (!seenForStep) {\n    seenForStep = new Set();\n    optionSeen.set(step, seenForStep);\n  }\n  if (seenForStep.has(key)) continue;\n  seenForStep.add(key);\n\n  step.options.push({\n    label: labelStr,\n    value: valueStr,\n    price\n  });\n}\n\n// 3) Ordenar pasos y (opcional) opciones\nfor (const mid of Object.keys(catalog)) {\n  catalog[mid].steps.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));\n}\n\nconst base = $items(\"Verificar Memoria\")?.[0]?.json || $items(\"Normalize Telegram\")?.[0]?.json || $json;\nconst staticData = $getWorkflowStaticData('global');\nstaticData.catalog = catalog;\nstaticData.catalogLoadedAt = Date.now();\nstaticData.catalog_cached_at = staticData.catalogLoadedAt;\n\nreturn [{ json: { ...base, catalogLoaded: true, models: Object.keys(catalog).length } }];\n"
       },
       "id": "22590555-ae92-4c24-95f8-306d85a04500",
       "name": "Guardar en Memoria",
@@ -343,7 +343,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// --- GENERADOR DE MENÚ DINÁMICO ---\nconst effectiveChatId = $json.chatId ?? $json.raw?.message?.chat?.id ?? $json.raw?.callback_query?.message?.chat?.id;\nconst staticData = $getWorkflowStaticData('global');\nconst catalog = staticData.catalog || {};\nconst models = Object.keys(catalog); // Obtiene lista: [\"CM1100\", \"MDM4121\", etc.]\n\n// Si el catálogo está vacío, advertimos\nif (models.length === 0) {\n  return [{ json: { \n    chatId: effectiveChatId, \n    raw: $json.raw,\n    text: \"⚠️ La memoria está vacía. Por favor ejecuta /start para recargar.\", \n    reply_markup: {} \n  }}];\n}\n\n// Construimos los botones (2 por fila)\nconst keyboard = [];\nlet row = [];\n\nmodels.forEach((model, index) => {\n  row.push({\n    text: model, \n    callback_data: `${model}|START` // CLAVE: Esto inicia el flujo de esa máquina\n  });\n\n  if (row.length === 2 || index === models.length - 1) {\n    keyboard.push(row);\n    row = [];\n  }\n});\n\n// Salida lista para tu nodo HTTP Request o Telegram\nreturn [{\n  json: {\n    chatId: effectiveChatId,\n    raw: $json.raw,\n    text: \"🏭 *Catálogo VC999 Disponible*\\n\\nSelecciona la máquina que deseas cotizar:\",\n    reply_markup: {\n      inline_keyboard: keyboard\n    }\n  }\n}];"
+        "jsCode": "// --- GENERADOR DE MENÚ DINÁMICO ---\nconst effectiveChatId = $json.chatId ?? $json.raw?.message?.chat?.id ?? $json.raw?.callback_query?.message?.chat?.id;\nconst staticData = $getWorkflowStaticData('global');\nconst catalog = staticData.catalog || {};\nconst models = Object.keys(catalog); // Obtiene lista: [\"CM1100\", \"MDM4121\", etc.]\n\n// Si el catálogo está vacío, advertimos\nif (models.length === 0) {\n  return [{ json: { \n    chatId: effectiveChatId, \n    raw: $json.raw,\n    text: \"⚠️ La memoria está vacía. Por favor ejecuta /reload para recargar.\", \n    reply_markup: {} \n  }}];\n}\n\n// Construimos los botones (2 por fila)\nconst keyboard = [];\nlet row = [];\n\nmodels.forEach((model, index) => {\n  row.push({\n    text: model, \n    callback_data: `${model}|START` // CLAVE: Esto inicia el flujo de esa máquina\n  });\n\n  if (row.length === 2 || index === models.length - 1) {\n    keyboard.push(row);\n    row = [];\n  }\n});\n\n// Salida lista para tu nodo HTTP Request o Telegram\nconst reloadLine = ($json.forceReload === true || $json.catalogLoaded === true)\n  ? `✅ Catálogo actualizado: ${models.length} modelos, ${new Date().toLocaleString()}`\n  : \"\";\n\nreturn [{\n  json: {\n    chatId: effectiveChatId,\n    raw: $json.raw,\n    text: `${reloadLine ? reloadLine + \"\\n\\n\" : \"\"}🏭 *Catálogo VC999 Disponible*\\n\\nSelecciona la máquina que deseas cotizar:`,\n    reply_markup: {\n      inline_keyboard: keyboard\n    }\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -869,6 +869,35 @@
         1056,
         560
       ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "171OxljLpc-5-RYaaVlFJR93IcbwbijLuhPjJ2Y79H6I",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DB_Precios",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "e7741529-12b4-4d5b-9e83-51386a1bd9c5",
+      "name": "Leer DB_Precios",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -176,
+        -208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DxYUvYlQ1tfP3LLg",
+          "name": "Google Sheets account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -939,7 +968,7 @@
       "main": [
         [
           {
-            "node": "Guardar en Memoria",
+            "node": "Leer DB_Precios",
             "type": "main",
             "index": 0
           }
@@ -1313,6 +1342,17 @@
     "Editar mensaje Telegram": {
       "main": [
         []
+      ]
+    },
+    "Leer DB_Precios": {
+      "main": [
+        [
+          {
+            "node": "Guardar en Memoria",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
