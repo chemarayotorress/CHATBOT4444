@@ -53,7 +53,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { error: 'missing_chat_id', message: 'chatId no disponible para enviar Telegram', input: $json } }];"
+        "jsCode": "return [{ json: { error: 'missing_chat_id', message: 'chatId no disponible para enviar Telegram', errorText: 'chatId no disponible para enviar Telegram', input: $json } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -306,6 +306,11 @@
             "node": "¿Callback Query?",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Leer DB_Maquinas",
+            "type": "main",
+            "index": 0
           }
         ],
         [
@@ -324,14 +329,102 @@
             "node": "Ack Callback Query",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Editar mensaje Telegram",
+            "type": "main",
+            "index": 0
           }
         ],
-        []
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Ack Callback Query": {
       "main": [
         []
+      ]
+    },
+    "Salida error chatId": {
+      "main": [
+        [
+          {
+            "node": "Notificar error PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar error PDF": {
+      "main": [
+        [
+          {
+            "node": "Notificar error FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Notificar error PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer DB_Maquinas": {
+      "main": [
+        [
+          {
+            "node": "Leer DB_Opciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer DB_Opciones": {
+      "main": [
+        [
+          {
+            "node": "Leer DB_Precios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer DB_Precios": {
+      "main": [
+        [
+          {
+            "node": "Guardar en Memoria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en Memoria": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
