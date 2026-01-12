@@ -27,7 +27,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// --- GENERADOR DE MEN\u00da DIN\u00c1MICO ---\nconst effectiveChatId = $json.chatId ?? $json.raw?.message?.chat?.id ?? $json.raw?.callback_query?.message?.chat?.id;\nconst staticData = $getWorkflowStaticData('global');\nconst catalog = staticData.catalog || {};\nconst models = Object.keys(catalog); // Obtiene lista: [\"CM1100\", \"MDM4121\", etc.]\n\n// Si el cat\u00e1logo est\u00e1 vac\u00edo, advertimos\nif (models.length === 0) {\n  return [{ json: { \n    chatId: effectiveChatId, \n    raw: $json.raw,\n    text: \"\u26a0\ufe0f La memoria est\u00e1 vac\u00eda. Por favor ejecuta /reload para recargar.\", \n    reply_markup: {} \n  }}];\n}\n\n// Construimos los botones (2 por fila)\nconst keyboard = [];\nlet row = [];\n\nmodels.forEach((model, index) => {\n  row.push({\n    text: model, \n    callback_data: `${model}|START` // CLAVE: Esto inicia el flujo de esa m\u00e1quina\n  });\n\n  if (row.length === 2 || index === models.length - 1) {\n    keyboard.push(row);\n    row = [];\n  }\n});\n\n// Salida lista para tu nodo HTTP Request o Telegram\nconst shouldConfirmReload = ($json.forceReload === true || $json.catalogLoaded === true);\nconst responseItems = [];\n\nif (shouldConfirmReload) {\n  responseItems.push({\n    json: {\n      chatId: effectiveChatId,\n      raw: $json.raw,\n      text: \"\u2705 Cat\u00e1logo actualizado\",\n      reply_markup: {}\n    }\n  });\n}\n\nresponseItems.push({\n  json: {\n    chatId: effectiveChatId,\n    raw: $json.raw,\n    text: \"\ud83c\udfed *Cat\u00e1logo VC999 Disponible*\\n\\nSelecciona la m\u00e1quina que deseas cotizar:\",\n    reply_markup: {\n      inline_keyboard: keyboard\n    }\n  }\n});\n\nreturn responseItems;"
+        "jsCode": "// --- GENERADOR DE MENÚ DINÁMICO ---\nconst effectiveChatId = $json.chatId ?? $json.raw?.message?.chat?.id ?? $json.raw?.callback_query?.message?.chat?.id;\nconst staticData = $getWorkflowStaticData('global');\nconst catalog = staticData.catalog || {};\nconst models = Object.keys(catalog); // Obtiene lista: [\"CM1100\", \"MDM4121\", etc.]\n\n// Si el catálogo está vacío, advertimos\nif (models.length === 0) {\n  return [{ json: { \n    chatId: effectiveChatId, \n    raw: $json.raw,\n    text: \"⚠️ La memoria está vacía. Por favor ejecuta /reload para recargar.\", \n    reply_markup: {} \n  }}];\n}\n\n// Construimos los botones (2 por fila)\nconst keyboard = [];\nlet row = [];\n\nmodels.forEach((model, index) => {\n  row.push({\n    text: model, \n    callback_data: `${model}|START` // CLAVE: Esto inicia el flujo de esa máquina\n  });\n\n  if (row.length === 2 || index === models.length - 1) {\n    keyboard.push(row);\n    row = [];\n  }\n});\n\n// Salida lista para tu nodo HTTP Request o Telegram\nconst shouldConfirmReload = ($json.forceReload === true || $json.catalogLoaded === true);\nconst responseItems = [];\n\nif (shouldConfirmReload) {\n  responseItems.push({\n    json: {\n      chatId: effectiveChatId,\n      raw: $json.raw,\n      text: \"✅ Catálogo actualizado\",\n      reply_markup: {}\n    }\n  });\n}\n\nresponseItems.push({\n  json: {\n    chatId: effectiveChatId,\n    raw: $json.raw,\n    text: \"🏭 *Catálogo VC999 Disponible*\\n\\nSelecciona la máquina que deseas cotizar:\",\n    reply_markup: {\n      inline_keyboard: keyboard\n    }\n  }\n});\n\nreturn responseItems;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -588,6 +588,209 @@
           "name": "Google Sheets account"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json;\nconst message = raw.message || raw.callback_query?.message;\nconst chatId = raw.chatId ?? message?.chat?.id ?? raw.callback_query?.message?.chat?.id;\nconst text = raw.text ?? raw.message?.text ?? raw.callback_query?.data ?? '';\n\nreturn [{ json: { chatId, text, raw } }];"
+      },
+      "id": "d23a5c85-42b6-4f6d-9d6b-f8f7e468a2a9",
+      "name": "Normalize Telegram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1248,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst current = staticData.baseUrl;\nconst envUrl = $env.FASTAPI_BASE_URL || $env.BASE_URL || $env.N8N_FASTAPI_URL;\nconst inputUrl = $json.baseUrl || $json.baseURL;\n\nstaticData.baseUrl = (inputUrl || envUrl || current || 'http://localhost:8000').trim();\n\nreturn [{ json: { ...$json, baseUrl: staticData.baseUrl } }];"
+      },
+      "id": "4c2b1d16-5b35-4f93-87f4-2d003252cdb4",
+      "name": "Set BASE_URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst text = String($json.text || '').trim();\nconst command = text.toLowerCase();\n\nconst hasCatalog = staticData.catalog && Object.keys(staticData.catalog).length > 0;\nconst forceReload = command.startsWith('/reload') || command.startsWith('/start');\nconst shouldReload = forceReload || !hasCatalog;\n\nreturn [{ json: { ...$json, forceReload, shouldReload, catalogLoaded: false } }];"
+      },
+      "id": "33a17e50-d33c-433b-9db9-6ea6d41e5f4a",
+      "name": "Verificar Memoria",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldReload === true }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "2cc7eb0f-1843-4d9d-97eb-4d68a6a42093",
+      "name": "¿Cargar BD?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "171OxljLpc-5-RYaaVlFJR93IcbwbijLuhPjJ2Y79H6I",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DB_Maquinas",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "9b8a0aa7-f8d0-4a9e-a1ad-d97d2e8a4a66",
+      "name": "Leer DB_Maquinas",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        32,
+        -288
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DxYUvYlQ1tfP3LLg",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "171OxljLpc-5-RYaaVlFJR93IcbwbijLuhPjJ2Y79H6I",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DB_Opciones",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "2ed478f0-81d5-4a5f-a4f3-55b5a08cc0a6",
+      "name": "Leer DB_Opciones",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -16,
+        -208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DxYUvYlQ1tfP3LLg",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n\nconst normalizeKey = (value) => String(value ?? '').trim().toLowerCase();\nconst pick = (row, keys) => {\n  const lower = Object.fromEntries(Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]));\n  for (const key of keys) {\n    const val = lower[key.toLowerCase()];\n    if (val !== undefined && val !== null && String(val).trim() !== '') return val;\n  }\n  return undefined;\n};\n\nconst machineRows = $('Leer DB_Maquinas').all().map((item) => item.json);\nconst optionRows = $('Leer DB_Opciones').all().map((item) => item.json);\nconst priceRows = $('Leer DB_Precios').all().map((item) => item.json);\n\nconst priceMap = new Map();\npriceRows.forEach((row) => {\n  const model = pick(row, ['modelo', 'model', 'maquina', 'machine']);\n  const step = pick(row, ['paso', 'step', 'etapa', 'categoria']);\n  const option = pick(row, ['opcion', 'option', 'valor', 'value', 'label']);\n  const price = pick(row, ['precio', 'price', 'valor_precio', 'price_usd', 'usd']);\n  if (!model || !option) return;\n  const key = [model, step ?? '', option].map(normalizeKey).join('|');\n  priceMap.set(key, price);\n});\n\nconst catalog = {};\nmachineRows.forEach((row) => {\n  const model = pick(row, ['modelo', 'model', 'maquina', 'machine']);\n  if (!model) return;\n  const basePrice = pick(row, ['precio_base', 'base_price', 'baseprice', 'precio', 'price', 'base']);\n  catalog[model] = {\n    basePrice: Number(String(basePrice ?? 0).replace(/[^0-9.\\-]/g, '')) || 0,\n    steps: [],\n  };\n});\n\nconst stepsIndex = new Map();\n\noptionRows.forEach((row) => {\n  const model = pick(row, ['modelo', 'model', 'maquina', 'machine']);\n  if (!model) return;\n  if (!catalog[model]) {\n    catalog[model] = { basePrice: 0, steps: [] };\n  }\n  const stepId = pick(row, ['paso', 'step', 'etapa', 'categoria', 'id']);\n  const question = pick(row, ['pregunta', 'question', 'texto']);\n  const optionLabel = pick(row, ['opcion', 'option', 'label', 'texto_opcion']);\n  const optionValue = pick(row, ['valor', 'value', 'opcion_valor']) ?? optionLabel;\n  if (!stepId || !optionLabel) return;\n\n  const stepKey = [model, stepId].map(normalizeKey).join('|');\n  let step = stepsIndex.get(stepKey);\n  if (!step) {\n    step = { id: stepId, question: question || stepId, options: [] };\n    stepsIndex.set(stepKey, step);\n    catalog[model].steps.push(step);\n  }\n\n  const priceKey = [model, stepId, optionValue ?? optionLabel].map(normalizeKey).join('|');\n  const priceRaw = priceMap.get(priceKey);\n  const fallbackPrice = pick(row, ['precio', 'price', 'valor_precio']);\n  const price = Number(String(priceRaw ?? fallbackPrice ?? 0).replace(/[^0-9.\\-]/g, '')) || 0;\n\n  step.options.push({\n    label: optionLabel,\n    value: optionValue ?? optionLabel,\n    price,\n  });\n});\n\nstaticData.catalog = catalog;\nstaticData.lastCatalogReload = new Date().toISOString();\n\nreturn [{ json: { ...$json, catalogLoaded: true, forceReload: true } }];"
+      },
+      "id": "b9012470-0d67-4a74-bc55-6a2f54a4c7d8",
+      "name": "Guardar en Memoria",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ...$json } }];"
+      },
+      "id": "040c99d4-1a7d-48a0-9ea4-0c41902b2105",
+      "name": "Router Maestro",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.text }}",
+        "rules": [
+          {
+            "operation": "regex",
+            "value2": "^/(start|reload|menu)"
+          }
+        ]
+      },
+      "id": "7d25b133-7e9a-4be9-b7c9-8ebd41e4b3d3",
+      "name": "Switch Maestro",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [
+        512,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.telegram.org/bot' + $env.TELEGRAM_BOT_TOKEN + '/sendMessage' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { chat_id: $json.chatId, text: $json.text, parse_mode: 'Markdown', reply_markup: $json.reply_markup || {} } }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "b2b1ef09-3b1f-4b6f-9c36-9bf4f2a25f61",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1248,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isFinished === true }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "e6b4412e-9903-44a7-b643-3d2a8bf4b9c0",
+      "name": "¿Terminó?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        368
+      ]
     }
   ],
   "pinData": {},
@@ -607,9 +810,49 @@
       "main": [
         [
           {
-            "index": 0,
             "node": "¿Callback Query?",
-            "type": "main"
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Callback Query?": {
+      "main": [
+        [
+          {
+            "node": "Ack Callback Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set BASE_URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ack Callback Query": {
+      "main": [
+        [
+          {
+            "node": "Set BASE_URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set BASE_URL": {
+      "main": [
+        [
+          {
+            "node": "Verificar Memoria",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -665,6 +908,17 @@
         ]
       ]
     },
+    "Leer DB_Precios": {
+      "main": [
+        [
+          {
+            "node": "Guardar en Memoria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Guardar en Memoria": {
       "main": [
         [
@@ -687,33 +941,26 @@
         ]
       ]
     },
-    "¿Terminó?": {
+    "¿ChatId disponible?": {
       "main": [
         [
           {
-            "node": "Preparar Body FastAPI",
+            "node": "Switch Maestro",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "index": 0,
-            "node": "¿Callback para mensaje?",
-            "type": "main"
+            "node": "Salida error chatId",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
     },
     "Switch Maestro": {
       "main": [
-        [
-          {
-            "node": "Enviar Menú",
-            "type": "main",
-            "index": 0
-          }
-        ],
         [
           {
             "node": "Generar menú dinámico",
@@ -734,9 +981,9 @@
       "main": [
         [
           {
-            "index": 0,
             "node": "¿Callback para mensaje?",
-            "type": "main"
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -752,11 +999,76 @@
         ]
       ]
     },
+    "¿Terminó?": {
+      "main": [
+        [
+          {
+            "node": "Preparar Body FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Callback para mensaje?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Preparar Body FastAPI": {
       "main": [
         [
           {
             "node": "Healthcheck FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Healthcheck FastAPI": {
+      "main": [
+        [
+          {
+            "node": "¿FastAPI saludable?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿FastAPI saludable?": {
+      "main": [
+        [
+          {
+            "node": "Llamar FastAPI Cotización",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿ChatId error FastAPI?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿ChatId error FastAPI?": {
+      "main": [
+        [
+          {
+            "node": "Notificar error FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Salida error FastAPI",
             "type": "main",
             "index": 0
           }
@@ -820,82 +1132,6 @@
         [
           {
             "node": "Salida error PDF",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Set BASE_URL": {
-      "main": [
-        [
-          {
-            "node": "Verificar Memoria",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "¿ChatId disponible?": {
-      "main": [
-        [
-          {
-            "node": "Switch Maestro",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Salida error chatId",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Healthcheck FastAPI": {
-      "main": [
-        [
-          {
-            "node": "¿FastAPI saludable?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "¿FastAPI saludable?": {
-      "main": [
-        [
-          {
-            "node": "Llamar FastAPI Cotización",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "¿ChatId error FastAPI?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "¿ChatId error FastAPI?": {
-      "main": [
-        [
-          {
-            "node": "Notificar error FastAPI",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Salida error FastAPI",
             "type": "main",
             "index": 0
           }
@@ -982,49 +1218,20 @@
         ]
       ]
     },
-    "¿Callback Query?": {
-      "main": [
-        [
-          {
-            "index": 0,
-            "node": "Ack Callback Query",
-            "type": "main"
-          }
-        ],
-        [
-          {
-            "index": 0,
-            "node": "Set BASE_URL",
-            "type": "main"
-          }
-        ]
-      ]
-    },
-    "Ack Callback Query": {
-      "main": [
-        [
-          {
-            "index": 0,
-            "node": "Set BASE_URL",
-            "type": "main"
-          }
-        ]
-      ]
-    },
     "¿Callback para mensaje?": {
       "main": [
         [
           {
-            "index": 0,
             "node": "Editar mensaje Telegram",
-            "type": "main"
+            "type": "main",
+            "index": 0
           }
         ],
         [
           {
-            "index": 0,
             "node": "HTTP Request",
-            "type": "main"
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1032,17 +1239,6 @@
     "Editar mensaje Telegram": {
       "main": [
         []
-      ]
-    },
-    "Leer DB_Precios": {
-      "main": [
-        [
-          {
-            "node": "Guardar en Memoria",
-            "type": "main",
-            "index": 0
-          }
-        ]
       ]
     }
   },
