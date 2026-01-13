@@ -721,19 +721,6 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { ...$json } }];"
-      },
-      "id": "040c99d4-1a7d-48a0-9ea4-0c41902b2105",
-      "name": "Router Maestro",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        256,
-        -128
-      ]
-    },
-    {
-      "parameters": {
         "dataType": "string",
         "value1": "={{ $json.text }}",
         "rules": [
@@ -879,7 +866,7 @@
         ],
         [
           {
-            "node": "Router Maestro",
+            "node": "¿ChatId disponible?",
             "type": "main",
             "index": 0
           }
@@ -920,17 +907,6 @@
       ]
     },
     "Guardar en Memoria": {
-      "main": [
-        [
-          {
-            "node": "Router Maestro",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Router Maestro": {
       "main": [
         [
           {
