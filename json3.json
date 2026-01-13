@@ -362,7 +362,40 @@
     },
     {
       "parameters": {
-        "jsCode": "const userState = $json.userState || {};\nconst customer = userState.customer || {};\n\nconst selections = Array.isArray(userState.selections)\n  ? userState.selections.map((sel) => ({\n      paso: sel.step ?? sel.label ?? '',\n      opcion: sel.value ?? sel.option ?? '',\n      precio: Number(sel.price ?? 0),\n    }))\n  : [];\n\nconst fastapiBody = {\n  modelo: userState.machine ?? '',\n  nombre_cliente: customer.name ?? '',\n  email: customer.email ?? '',\n\n  // ✅ NUEVO\n  asesor: userState.advisor ?? '',\n\n  precio_base: Number(userState.basePrice ?? userState.totalPrice ?? 0),\n  precio_cambiado: Number(userState.totalPrice ?? 0),\n  selecciones: selections,\n};\n\nreturn [{ json: { ...$json, fastapiBody } }];\n"
+        "documentId": {
+          "__rl": true,
+          "value": "1n3Sz_7LWvO56Aet__6MWGpqSgvcp7emX9o4AHpignjY",
+          "mode": "list",
+          "cachedResultName": "Catalogo_Maquinas_VC999_full_v3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n3Sz_7LWvO56Aet__6MWGpqSgvcp7emX9o4AHpignjY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1338588165,
+          "mode": "list",
+          "cachedResultName": "DB_Maquinas",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n3Sz_7LWvO56Aet__6MWGpqSgvcp7emX9o4AHpignjY/edit#gid=1338588165"
+        },
+        "options": {}
+      },
+      "id": "7d9a1d94-3e08-46f0-a1ba-41d9c45b7bc7",
+      "name": "Leer DB_Maquinas Precio Base",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1152,
+        368
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DxYUvYlQ1tfP3LLg",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $items(\"¿Terminó?\")[0]?.json ?? $json;\nconst userState = input.userState || {};\nconst customer = userState.customer || {};\n\nconst toNum = (v) => {\n  const s = String(v ?? '').replace(/[^0-9.\\-]/g, '');\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? n : 0;\n};\n\nconst normKey = (k) => String(k || '').toLowerCase().trim().replace(/\\s+/g,'').replace(/[_\\-]/g,'');\nconst getVal = (obj, terms) => {\n  if (!obj) return undefined;\n  const keys = Object.keys(obj);\n  const map = new Map(keys.map(k => [normKey(k), k]));\n  for (const t of terms) {\n    const nk = normKey(t);\n    if (map.has(nk)) return obj[map.get(nk)];\n  }\n  for (const t of terms) {\n    const nk = normKey(t);\n    const partial = keys.find(k => normKey(k).includes(nk));\n    if (partial) return obj[partial];\n  }\n  return undefined;\n};\n\nconst machine = userState.machine ?? input.quotePayload?.machine ?? '';\nconst machineKey = String(machine ?? '').trim().toLowerCase();\nconst maquinasRows = $items(\"Leer DB_Maquinas Precio Base\").map((i) => i.json);\n\nlet basePriceFromSheet;\nfor (const row of maquinasRows) {\n  const modelo = getVal(row, [\"modelo\", \"model\", \"id\", \"maquina_id\"]);\n  if (!modelo) continue;\n  if (String(modelo).trim().toLowerCase() === machineKey) {\n    basePriceFromSheet = toNum(getVal(row, [\"precio_base\", \"base_price\", \"price\", \"precio\", \"costo\"]));\n    break;\n  }\n}\n\nconst resolvedBasePrice = Number.isFinite(basePriceFromSheet)\n  ? basePriceFromSheet\n  : Number(userState.basePrice ?? userState.totalPrice ?? 0);\n\nconst selections = Array.isArray(userState.selections)\n  ? userState.selections.map((sel) => ({\n      paso: sel.step ?? sel.label ?? '',\n      opcion: sel.value ?? sel.option ?? '',\n      precio: Number(sel.price ?? 0),\n    }))\n  : [];\n\nconst fastapiBody = {\n  modelo: machine ?? '',\n  nombre_cliente: customer.name ?? '',\n  email: customer.email ?? '',\n\n  // ✅ NUEVO\n  asesor: userState.advisor ?? '',\n\n  precio_base: resolvedBasePrice,\n  precio_cambiado: Number(userState.totalPrice ?? 0),\n  selecciones: selections,\n};\n\nreturn [{ json: { ...input, fastapiBody } }];\n"
       },
       "id": "402c5f39-83b8-4c2a-a98a-c446dd58060e",
       "name": "Preparar Body FastAPI",
@@ -645,7 +678,7 @@
       "main": [
         [
           {
-            "node": "Preparar Body FastAPI",
+            "node": "Leer DB_Maquinas Precio Base",
             "type": "main",
             "index": 0
           }
@@ -774,6 +807,17 @@
         [
           {
             "node": "Notificar error PDF (json3)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer DB_Maquinas Precio Base": {
+      "main": [
+        [
+          {
+            "node": "Preparar Body FastAPI",
             "type": "main",
             "index": 0
           }
