@@ -426,7 +426,38 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $items(\"¿Terminó?\")[0]?.json ?? $json;\nconst userState = input.userState || {};\nconst customer = userState.customer || {};\n\nconst toNum = (v) => {\n  const s = String(v ?? '').replace(/[^0-9.\\-]/g, '');\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? n : 0;\n};\n\nconst normKey = (k) => String(k || '').toLowerCase().trim().replace(/\\s+/g,'').replace(/[_\\-]/g,'');\nconst getVal = (obj, terms) => {\n  if (!obj) return undefined;\n  const keys = Object.keys(obj);\n  const map = new Map(keys.map(k => [normKey(k), k]));\n  for (const t of terms) {\n    const nk = normKey(t);\n    if (map.has(nk)) return obj[map.get(nk)];\n  }\n  for (const t of terms) {\n    const nk = normKey(t);\n    const partial = keys.find(k => normKey(k).includes(nk));\n    if (partial) return obj[partial];\n  }\n  return undefined;\n};\n\nconst machine = userState.machine ?? input.quotePayload?.machine ?? '';\nconst machineKey = String(machine ?? '').trim().toLowerCase();\nconst maquinasRows = $items(\"Leer DB_Maquinas Precio Base\").map((i) => i.json);\n\nlet basePriceFromSheet;\nfor (const row of maquinasRows) {\n  const modelo = getVal(row, [\"modelo\", \"model\", \"id\", \"maquina_id\"]);\n  if (!modelo) continue;\n  if (String(modelo).trim().toLowerCase() === machineKey) {\n    basePriceFromSheet = toNum(getVal(row, [\"precio_base\", \"base_price\", \"price\", \"precio\", \"costo\"]));\n    break;\n  }\n}\n\nconst resolvedBasePrice = Number.isFinite(basePriceFromSheet)\n  ? basePriceFromSheet\n  : Number(userState.basePrice ?? userState.totalPrice ?? 0);\n\nconst selections = Array.isArray(userState.selections)\n  ? userState.selections.map((sel) => ({\n      paso: sel.step ?? sel.label ?? '',\n      opcion: sel.value ?? sel.option ?? '',\n      precio: Number(sel.price ?? 0),\n    }))\n  : [];\n\nconst fastapiBody = {\n  modelo: machine ?? '',\n  nombre_cliente: customer.name ?? '',\n  email: customer.email ?? '',\n\n  // ✅ NUEVO\n  asesor: userState.advisor ?? '',\n\n  precio_base: resolvedBasePrice,\n  precio_cambiado: Number(userState.totalPrice ?? 0),\n  selecciones: selections,\n};\n\nreturn [{ json: { ...input, fastapiBody } }];\n"
+        "documentId": {
+          "__rl": true,
+          "value": "1n3Sz_7LWvO56Aet__6MWGpqSgvcp7emX9o4AHpignjY",
+          "mode": "list",
+          "cachedResultName": "Catalogo_Maquinas_VC999_full_v3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n3Sz_7LWvO56Aet__6MWGpqSgvcp7emX9o4AHpignjY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DB_Precios",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "66ae3b14-02ea-4b44-8f6f-04f2c11f72e7",
+      "name": "Leer DB_Precios FastAPI",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1280,
+        368
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DxYUvYlQ1tfP3LLg",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $items(\"¿Terminó?\")[0]?.json ?? $json;\nconst userState = input.userState || {};\nconst customer = userState.customer || {};\n\nconst toNum = (v) => {\n  const s = String(v ?? '').replace(/[^0-9.\\-]/g, '');\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? n : 0;\n};\n\nconst normKey = (k) => String(k || '').toLowerCase().trim().replace(/\\s+/g,'').replace(/[_\\-]/g,'');\nconst normLower = (v) => String(v ?? '').trim().toLowerCase();\nconst getVal = (obj, terms) => {\n  if (!obj) return undefined;\n  const keys = Object.keys(obj);\n  const map = new Map(keys.map(k => [normKey(k), k]));\n  for (const t of terms) {\n    const nk = normKey(t);\n    if (map.has(nk)) return obj[map.get(nk)];\n  }\n  for (const t of terms) {\n    const nk = normKey(t);\n    const partial = keys.find(k => normKey(k).includes(nk));\n    if (partial) return obj[partial];\n  }\n  return undefined;\n};\n\nconst machine = userState.machine ?? input.quotePayload?.machine ?? '';\nconst machineKey = String(machine ?? '').trim().toLowerCase();\nconst maquinasRows = $items(\"Leer DB_Maquinas Precio Base\").map((i) => i.json);\nconst preciosRows = $items(\"Leer DB_Precios FastAPI\").map((i) => i.json);\n\nlet basePriceFromSheet;\nfor (const row of maquinasRows) {\n  const modelo = getVal(row, [\"modelo\", \"model\", \"id\", \"maquina_id\"]);\n  if (!modelo) continue;\n  if (String(modelo).trim().toLowerCase() === machineKey) {\n    basePriceFromSheet = toNum(getVal(row, [\"precio_base\", \"base_price\", \"price\", \"precio\", \"costo\"]));\n    break;\n  }\n}\n\nconst resolvedBasePrice = Number.isFinite(basePriceFromSheet)\n  ? basePriceFromSheet\n  : Number(userState.basePrice ?? userState.totalPrice ?? 0);\n\nconst priceLookup = new Map();\nconst priceKey = (modelo, paso, opcion) =>\n  `${normLower(modelo)}||${normLower(paso)}||${normLower(opcion)}`;\n\nfor (const row of preciosRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"maquina\",\"maquina_id\"]);\n  const pasoId = getVal(row, [\"paso_id\",\"step_id\",\"paso\",\"step\"]);\n  const opcion = getVal(row, [\"opcion\",\"opcion_label\",\"opcion_valor\",\"label\",\"value\",\"nombre_opcion\"]);\n  const precio = toNum(getVal(row, [\"precio\",\"price\",\"costo\",\"opcion_precio\",\"extra\"]));\n\n  if (!modelo || !pasoId || !opcion) continue;\n  priceLookup.set(priceKey(modelo, pasoId, opcion), precio);\n}\n\nconst selections = Array.isArray(userState.selections)\n  ? userState.selections.map((sel) => {\n      const paso = sel.step ?? sel.label ?? '';\n      const opcion = sel.value ?? sel.option ?? '';\n      const sheetPrice = priceLookup.get(priceKey(machine, paso, opcion));\n      const precio = Number.isFinite(sheetPrice) ? sheetPrice : Number(sel.price ?? 0);\n      return {\n        paso,\n        opcion,\n        precio,\n      };\n    })\n  : [];\n\nconst selectionsTotal = selections.reduce((sum, sel) => sum + toNum(sel.precio), 0);\nconst recomputedTotal = resolvedBasePrice + selectionsTotal;\nconst resolvedTotalPrice = Number.isFinite(recomputedTotal)\n  ? recomputedTotal\n  : Number(userState.totalPrice ?? 0);\n\nconst fastapiBody = {\n  modelo: machine ?? '',\n  nombre_cliente: customer.name ?? '',\n  email: customer.email ?? '',\n\n  // ✅ NUEVO\n  asesor: userState.advisor ?? '',\n\n  precio_base: resolvedBasePrice,\n  precio_cambiado: resolvedTotalPrice,\n  selecciones: selections,\n};\n\nreturn [{ json: { ...input, fastapiBody } }];\n"
       },
       "id": "402c5f39-83b8-4c2a-a98a-c446dd58060e",
       "name": "Preparar Body FastAPI",
@@ -856,6 +887,17 @@
       ]
     },
     "Leer DB_Maquinas Precio Base": {
+      "main": [
+        [
+          {
+            "node": "Leer DB_Precios FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer DB_Precios FastAPI": {
       "main": [
         [
           {
