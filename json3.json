@@ -492,7 +492,7 @@
       "parameters": {
         "resource": "callbackQuery",
         "operation": "answerCallbackQuery",
-        "callbackQueryId": "={{ $json.raw?.callback_query?.id }}",
+        "callbackQueryId": "={{ $json.raw?.callback_query?.id || $json.callback_query?.id || '' }}",
         "additionalFields": {
           "text": "Procesando...",
           "show_alert": false
@@ -604,7 +604,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst current = staticData.baseUrl;\nconst envUrl = $env.FASTAPI_BASE_URL || $env.BASE_URL || $env.N8N_FASTAPI_URL;\nconst inputUrl = $json.baseUrl || $json.baseURL;\n\nstaticData.baseUrl = (inputUrl || envUrl || current || 'http://localhost:8000').trim();\n\nreturn [{ json: { ...$json, baseUrl: staticData.baseUrl } }];"
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst current = staticData.baseUrl;\nconst inputUrl = $json.baseUrl || $json.baseURL;\n\nstaticData.baseUrl = (inputUrl || current || 'http://localhost:8000').trim();\n\nreturn [{ json: { ...$json, baseUrl: staticData.baseUrl } }];"
       },
       "id": "4c2b1d16-5b35-4f93-87f4-2d003252cdb4",
       "name": "Set BASE_URL",
