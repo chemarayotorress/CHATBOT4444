@@ -139,14 +139,45 @@
     },
     {
       "parameters": {
-        "jsCode": "// --- CARGA DATA-DRIVEN DESDE GOOGLE SHEETS (DB_Maquinas + DB_Opciones)\n// Fuentes: nodos \"Leer DB_Maquinas\" y \"Leer DB_Opciones\"\nconst toNum = (v) => {\n  if (v === null || v === undefined) return 0;\n  const s = String(v).replace(/[^0-9.\\-]/g, '');\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? n : 0;\n};\nconst toInt = (v, d=0) => {\n  const n = parseInt(String(v), 10);\n  return Number.isFinite(n) ? n : d;\n};\n\n// getter flexible (tolerante a sinónimos/ mayúsculas / espacios)\nconst normKey = (k) => String(k || '').toLowerCase().trim().replace(/\\s+/g,'').replace(/[_\\-]/g,'');\nconst getVal = (obj, terms) => {\n  if (!obj) return undefined;\n  const keys = Object.keys(obj);\n  const map = new Map(keys.map(k => [normKey(k), k]));\n  for (const t of terms) {\n    const nk = normKey(t);\n    if (map.has(nk)) return obj[map.get(nk)];\n  }\n  for (const t of terms) {\n    const nk = normKey(t);\n    const partial = keys.find(k => normKey(k).includes(nk));\n    if (partial) return obj[partial];\n  }\n  return undefined;\n};\n\nconst norm = (v) => String(v ?? '').trim().replace(/\\s+/g, ' ');\nconst normLower = (v) => norm(v).toLowerCase();\nconst optionSeen = new WeakMap();\n\n// Nota: en n8n, el nombre exacto de los nodos importa:\nconst maquinasRows = $items(\"Leer DB_Maquinas\").map(i => i.json);\nconst opcionesRows = $items(\"Leer DB_Opciones\").map(i => i.json);\n\nconst catalog = {};\n\n// 1) Máquinas\nfor (const row of maquinasRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"id\",\"maquina_id\"]);\n  if (!modelo) continue;\n\n  const nombre = getVal(row, [\"nombre\",\"name\",\"descripcion\",\"description\"]) ?? modelo;\n  const basePrice = toNum(getVal(row, [\"precio_base\",\"base_price\",\"price\",\"precio\",\"costo\"]));\n  const plantilla = getVal(row, [\"plantilla\",\"template\",\"docx\",\"archivo\"]);\n\n  catalog[String(modelo)] = {\n    id: String(modelo),\n    name: String(nombre),\n    basePrice,\n    plantilla: plantilla ? String(plantilla) : undefined,\n    steps: []\n  };\n}\n\n// 2) Opciones / Pasos\nfor (const row of opcionesRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"maquina\",\"maquina_id\"]);\n  if (!modelo) continue;\n  const m = catalog[String(modelo)];\n  if (!m) continue;\n\n  const pasoId = getVal(row, [\"paso_id\",\"step_id\",\"paso\",\"step\"]);\n  const pregunta = getVal(row, [\"pregunta\",\"paso_pregunta\",\"question\",\"texto\"]);\n  const orden = toInt(getVal(row, [\"paso_orden\",\"order\",\"orden\"]), 0);\n\n  if (!pasoId) continue;\n\n  let step = m.steps.find(s => s.id === String(pasoId));\n  if (!step) {\n    const questionStr = norm(pregunta);\n    step = { id: String(pasoId), question: questionStr || 'Selecciona una opción', order: orden, options: [] };\n    m.steps.push(step);\n  }\n\n  const rawLabel = getVal(row, [\"opcion_label\",\"label\",\"etiqueta\",\"nombre_opcion\",\"opcion\"]) || getVal(row, [\"opcion label\",\"opcion_label\",\"opcionlabel\"]);\n  const rawValue = getVal(row, [\"opcion_valor\",\"value\",\"valor\",\"code\",\"key\"]) || rawLabel;\n  const price = toNum(getVal(row, [\"opcion_precio\",\"price\",\"precio\",\"costo\",\"extra\"]));\n\n  const labelStr = norm(rawLabel || rawValue);\n  let valueStr = norm(rawValue || rawLabel || labelStr);\n  if (labelStr === '') continue;\n\n  if (valueStr === '') valueStr = labelStr;\n\n  const key = `${normLower(labelStr)}|${normLower(valueStr)}`;\n  let seenForStep = optionSeen.get(step);\n  if (!seenForStep) {\n    seenForStep = new Set();\n    optionSeen.set(step, seenForStep);\n  }\n  if (seenForStep.has(key)) continue;\n  seenForStep.add(key);\n\n  step.options.push({\n    label: labelStr,\n    value: valueStr,\n    price\n  });\n}\n\n// 3) Ordenar pasos y (opcional) opciones\nfor (const mid of Object.keys(catalog)) {\n  catalog[mid].steps.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));\n}\n\nconst input = $input.first().json;\nconst staticData = $getWorkflowStaticData('global');\nstaticData.catalog = catalog;\n\nreturn [{ json: { ...input, catalogLoaded: true, models: Object.keys(catalog).length } }];\n"
+        "documentId": {
+          "__rl": true,
+          "value": "1n3Sz_7LWvO56Aet__6MWGpqSgvcp7emX9o4AHpignjY",
+          "mode": "list",
+          "cachedResultName": "Catalogo_Maquinas_VC999_full_v3",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n3Sz_7LWvO56Aet__6MWGpqSgvcp7emX9o4AHpignjY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "DB_Precios",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "ae46606d-4158-4049-aada-98fc5650d2ec",
+      "name": "Leer DB_Precios",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        32,
+        -224
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DxYUvYlQ1tfP3LLg",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- CARGA DATA-DRIVEN DESDE GOOGLE SHEETS (DB_Maquinas + DB_Opciones + DB_Precios)\n// Fuentes: nodos \"Leer DB_Maquinas\", \"Leer DB_Opciones\" y \"Leer DB_Precios\"\nconst toNum = (v) => {\n  if (v === null || v === undefined) return 0;\n  const s = String(v).replace(/[^0-9.\\-]/g, '');\n  const n = parseFloat(s);\n  return Number.isFinite(n) ? n : 0;\n};\nconst toInt = (v, d=0) => {\n  const n = parseInt(String(v), 10);\n  return Number.isFinite(n) ? n : d;\n};\n\n// getter flexible (tolerante a sinónimos/ mayúsculas / espacios)\nconst normKey = (k) => String(k || '').toLowerCase().trim().replace(/\\s+/g,'').replace(/[_\\-]/g,'');\nconst getVal = (obj, terms) => {\n  if (!obj) return undefined;\n  const keys = Object.keys(obj);\n  const map = new Map(keys.map(k => [normKey(k), k]));\n  for (const t of terms) {\n    const nk = normKey(t);\n    if (map.has(nk)) return obj[map.get(nk)];\n  }\n  for (const t of terms) {\n    const nk = normKey(t);\n    const partial = keys.find(k => normKey(k).includes(nk));\n    if (partial) return obj[partial];\n  }\n  return undefined;\n};\n\nconst norm = (v) => String(v ?? '').trim().replace(/\\s+/g, ' ');\nconst normLower = (v) => norm(v).toLowerCase();\nconst optionSeen = new WeakMap();\n\n// Nota: en n8n, el nombre exacto de los nodos importa:\nconst maquinasRows = $items(\"Leer DB_Maquinas\").map(i => i.json);\nconst opcionesRows = $items(\"Leer DB_Opciones\").map(i => i.json);\nconst preciosRows = $items(\"Leer DB_Precios\").map(i => i.json);\n\nconst catalog = {};\nconst priceLookup = new Map();\n\nconst priceKey = (modelo, paso, opcion) =>\n  `${normLower(modelo)}||${normLower(paso)}||${normLower(opcion)}`;\n\nfor (const row of preciosRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"maquina\",\"maquina_id\"]);\n  const pasoId = getVal(row, [\"paso_id\",\"step_id\",\"paso\",\"step\"]);\n  const opcion = getVal(row, [\"opcion\",\"opcion_label\",\"opcion_valor\",\"label\",\"value\",\"nombre_opcion\"]);\n  const precio = toNum(getVal(row, [\"precio\",\"price\",\"costo\",\"opcion_precio\",\"extra\"]));\n\n  if (!modelo || !pasoId || !opcion) continue;\n\n  priceLookup.set(priceKey(modelo, pasoId, opcion), precio);\n}\n\n// 1) Máquinas\nfor (const row of maquinasRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"id\",\"maquina_id\"]);\n  if (!modelo) continue;\n\n  const nombre = getVal(row, [\"nombre\",\"name\",\"descripcion\",\"description\"]) ?? modelo;\n  const basePrice = toNum(getVal(row, [\"precio_base\",\"base_price\",\"price\",\"precio\",\"costo\"]));\n  const plantilla = getVal(row, [\"plantilla\",\"template\",\"docx\",\"archivo\"]);\n\n  catalog[String(modelo)] = {\n    id: String(modelo),\n    name: String(nombre),\n    basePrice,\n    plantilla: plantilla ? String(plantilla) : undefined,\n    steps: []\n  };\n}\n\n// 2) Opciones / Pasos\nfor (const row of opcionesRows) {\n  const modelo = getVal(row, [\"modelo\",\"model\",\"maquina\",\"maquina_id\"]);\n  if (!modelo) continue;\n  const m = catalog[String(modelo)];\n  if (!m) continue;\n\n  const pasoId = getVal(row, [\"paso_id\",\"step_id\",\"paso\",\"step\"]);\n  const pregunta = getVal(row, [\"pregunta\",\"paso_pregunta\",\"question\",\"texto\"]);\n  const orden = toInt(getVal(row, [\"paso_orden\",\"order\",\"orden\"]), 0);\n\n  if (!pasoId) continue;\n\n  let step = m.steps.find(s => s.id === String(pasoId));\n  if (!step) {\n    const questionStr = norm(pregunta);\n    step = { id: String(pasoId), question: questionStr || 'Selecciona una opción', order: orden, options: [] };\n    m.steps.push(step);\n  }\n\n  const rawLabel = getVal(row, [\"opcion_label\",\"label\",\"etiqueta\",\"nombre_opcion\",\"opcion\"]) || getVal(row, [\"opcion label\",\"opcion_label\",\"opcionlabel\"]);\n  const rawValue = getVal(row, [\"opcion_valor\",\"value\",\"valor\",\"code\",\"key\"]) || rawLabel;\n  const fallbackPrice = toNum(getVal(row, [\"opcion_precio\",\"price\",\"precio\",\"costo\",\"extra\"]));\n\n  const labelStr = norm(rawLabel || rawValue);\n  let valueStr = norm(rawValue || rawLabel || labelStr);\n  if (labelStr === '') continue;\n\n  if (valueStr === '') valueStr = labelStr;\n\n  const modelKey = String(modelo);\n  const priceFromSheet =\n    priceLookup.get(priceKey(modelKey, pasoId, valueStr)) ??\n    priceLookup.get(priceKey(modelKey, pasoId, labelStr));\n\n  const price = Number.isFinite(priceFromSheet) ? priceFromSheet : fallbackPrice;\n\n  const key = `${normLower(labelStr)}|${normLower(valueStr)}`;\n  let seenForStep = optionSeen.get(step);\n  if (!seenForStep) {\n    seenForStep = new Set();\n    optionSeen.set(step, seenForStep);\n  }\n  if (seenForStep.has(key)) continue;\n  seenForStep.add(key);\n\n  step.options.push({\n    label: labelStr,\n    value: valueStr,\n    price\n  });\n}\n\n// 3) Ordenar pasos y (opcional) opciones\nfor (const mid of Object.keys(catalog)) {\n  catalog[mid].steps.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));\n}\n\nconst input = $input.first().json;\nconst staticData = $getWorkflowStaticData('global');\nstaticData.catalog = catalog;\n\nreturn [{ json: { ...input, catalogLoaded: true, models: Object.keys(catalog).length } }];\n"
       },
       "id": "c413224c-6ddd-4426-b33a-b8fb0a085873",
       "name": "Guardar en Memoria",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        32,
+        256,
         -224
       ]
     },
@@ -642,6 +673,17 @@
       ]
     },
     "Leer DB_Opciones": {
+      "main": [
+        [
+          {
+            "node": "Leer DB_Precios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer DB_Precios": {
       "main": [
         [
           {
